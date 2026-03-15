@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html><head>
+<meta charset="UTF-8">
+<title>LocalLens - 02 mongodb schemas</title>
+<style>body { font-family: Segoe UI, -apple-system, sans-serif; max-width: 900px; margin: 2rem auto; padding: 0 2rem; color: #1a1a2e; line-height: 1.7; }
+h1 { color: #4f46e5; border-bottom: 3px solid #4f46e5; padding-bottom: 0.5rem; margin-top: 2rem; }
+h2 { color: #6366f1; border-bottom: 1px solid #e5e7eb; padding-bottom: 0.3rem; margin-top: 1.5rem; }
+h3 { color: #7c3aed; margin-top: 1.2rem; }
+code { background: #f3f4f6; padding: 2px 6px; border-radius: 4px; font-size: 0.9em; }
+pre { background: #1e1e2e; color: #cdd6f4; padding: 1rem; border-radius: 8px; overflow-x: auto; font-size: 0.85rem; }
+pre code { background: none; padding: 0; color: inherit; }
+table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
+th, td { border: 1px solid #d1d5db; padding: 0.5rem 0.75rem; text-align: left; font-size: 0.9rem; }
+th { background: #f3f4f6; font-weight: 600; }
+tr:nth-child(even) { background: #f9fafb; }
+blockquote { border-left: 4px solid #4f46e5; padding-left: 1rem; color: #6b7280; margin: 1rem 0; }
+hr { border: none; border-top: 2px solid #e5e7eb; margin: 2rem 0; }
+@media print { body { max-width: 100%; margin: 0; } pre { white-space: pre-wrap; } }</style>
+</head><body>
+<h1>LocalLens — MongoDB Schemas</h1>
+
+<p>> All collections use MongoDB Atlas with <code>2dsphere</code> geospatial indexes on location fields. TTL indexes on session/temp data. All <code>_id</code> fields are auto-generated <code>ObjectId</code> unless noted.</p>
+
+<hr>
+
+<h2>1. <code>users</code> Collection</h2>
+
+<p>Unified collection with <code>role</code> discriminator for travelers and creators.</p>
+
+<pre><code>{
+<p>"_id": "ObjectId",</p>
+<p>"email": "string (unique, indexed)",</p>
+<p>"passwordHash": "string (null if OAuth-only)",</p>
+<p>"firstName": "string",</p>
+<p>"lastName": "string",</p>
+<p>"avatarUrl": "string",</p>
+<p>"role": "enum: TRAVELER | CREATOR | ADMIN",</p>
+<p>"authProvider": "enum: LOCAL | GOOGLE | APPLE",</p>
+<p>"oauthProviderId": "string (nullable)",</p>
+<p>"phone": "string (nullable)",</p>
+<p>"currency": "string (ISO 4217, default: USD)",</p>
+<p>"language": "string (ISO 639-1, default: en)",</p>
+<p>"preferences": {</p>
+<p>"interests": ["Food", "Adventure", "Museums"],</p>
+<p>"travelStyle": "enum: LUXURY | COMFORT | BACKPACKER | FAMILY | SOLO | COUPLE",</p>
+<p>"accessibilityNeeds": ["string"],</p>
+<p>"dietaryRestrictions": ["string"],</p>
+<p>"darkMode": "boolean"</p>
+<p>},</p>
+<p>"creatorProfile": {</p>
+<p>"city": "string",</p>
+<p>"expertise": ["Food", "Culture", "Nightlife"],</p>
+<p>"bio": "string (max 500 chars)",</p>
+<p>"verified": "boolean (default: false)",</p>
+<p>"idVerificationStatus": "enum: PENDING | VERIFIED | REJECTED",</p>
+<p>"stripeAccountId": "string (Stripe Connect)",</p>
+<p>"totalEarnings": "number (cents)",</p>
+<p>"rating": "number (0-5, computed)",</p>
+<p>"reviewCount": "number",</p>
+<p>"totalBookings": "number",</p>
+<p>"location": {</p>
+<p>"type": "Point",</p>
+<p>"coordinates": ["longitude", "latitude"]</p>
+<p>}</p>
+<p>},</p>
+<p>"refreshTokenHash": "string (nullable)",</p>
+<p>"lastLoginAt": "ISODate",</p>
+<p>"createdAt": "ISODate",</p>
+<p>"updatedAt": "ISODate"</p>
+<p>}</code></pre></p>
+
+<strong>Indexes:</strong>
+<li><code>{ email: 1 }</code> — unique</li>
+<li><code>{ role: 1 }</code></li>
+<li><code>{ "creatorProfile.city": 1, "creatorProfile.expertise": 1 }</code></li>
+<li><code>{ "creatorProfile.location": "2dsphere" }</code></li>
+
+<hr>
+
+<h2>2. <code>trips</code> Collection</h2>
+
+<p>Master trip document containing metadata and budget tracking.</p>
+
+<pre><code>{
+<p>"_id": "ObjectId",</p>
+<p>"userId": "ObjectId (ref: users)",</p>
+<p>"title": "string (e.g., 'Kyoto Adventure 2026')",</p>
+<p>"destination": {</p>
+<p>"city": "string",</p>
+<p>"country": "string",</p>
+<p>"location": {</p>
+<p>"type": "Point",</p>
+<p>"coordinates": ["longitude", "latitude"]</p>
+<p>}</p>
+<p>},</p>
+<p>"startDate": "ISODate",</p>
+<p>"endDate": "ISODate",</p>
+<p>"durationDays": "number",</p>
+<p>"groupSize": "number",</p>
+<p>"travelStyle": "enum: LUXURY | COMFORT | BACKPACKER | FAMILY | SOLO | COUPLE",</p>
+<p>"interests": ["Food", "Adventure", "Museums"],</p>
+<p>"accessibilityNeeds": ["string"],</p>
+<p>"budget": {</p>
+<p>"total": "number (cents)",</p>
+<p>"currency": "string (ISO 4217)",</p>
+<p>"spent": "number (cents, computed)",</p>
+<p>"breakdown": {</p>
+<p>"accommodation": "number (cents)",</p>
+<p>"food": "number (cents)",</p>
+<p>"transport": "number (cents)",</p>
+<p>"activities": "number (cents)",</p>
+<p>"shopping": "number (cents)",</p>
+<p>"miscellaneous": "number (cents)"</p>
+<p>}</p>
+<p>},</p>
+<p>"flights": [{</p>
+<p>"type": "enum: OUTBOUND | RETURN | LAYOVER",</p>
+<p>"airline": "string",</p>
+<p>"flightNumber": "string",</p>
+<p>"departure": {</p>
+<p>"airport": "string (IATA)",</p>
+<p>"terminal": "string",</p>
+<p>"gate": "string (nullable)",</p>
+<p>"time": "ISODate"</p>
+<p>},</p>
+<p>"arrival": {</p>
+<p>"airport": "string (IATA)",</p>
+<p>"terminal": "string",</p>
+<p>"time": "ISODate"</p>
+<p>},</p>
+<p>"bookingRef": "string",</p>
+<p>"seatNumber": "string (nullable)"</p>
+<p>}],</p>
+<p>"accommodation": [{</p>
+<p>"name": "string",</p>
+<p>"type": "enum: HOTEL | HOSTEL | AIRBNB | RESORT",</p>
+<p>"address": "string",</p>
+<p>"location": {</p>
+<p>"type": "Point",</p>
+<p>"coordinates": ["longitude", "latitude"]</p>
+<p>},</p>
+<p>"checkIn": "ISODate",</p>
+<p>"checkOut": "ISODate",</p>
+<p>"bookingRef": "string",</p>
+<p>"pricePerNight": "number (cents)",</p>
+<p>"totalPrice": "number (cents)",</p>
+<p>"contactPhone": "string"</p>
+<p>}],</p>
+<p>"documents": [{</p>
+<p>"type": "enum: PASSPORT | VISA | INSURANCE | TICKET | OTHER",</p>
+<p>"fileName": "string",</p>
+<p>"gridFsFileId": "ObjectId (ref: GridFS)",</p>
+<p>"uploadedAt": "ISODate"</p>
+<p>}],</p>
+<p>"status": "enum: DRAFT | PLANNED | ACTIVE | COMPLETED | CANCELLED",</p>
+<p>"itineraryVersion": "number (incremented on replan)",</p>
+<p>"createdAt": "ISODate",</p>
+<p>"updatedAt": "ISODate"</p>
+<p>}</code></pre></p>
+
+<strong>Indexes:</strong>
+<li><code>{ userId: 1, status: 1 }</code></li>
+<li><code>{ "destination.location": "2dsphere" }</code></li>
+<li><code>{ startDate: 1, endDate: 1 }</code></li>
+<li><code>{ status: 1, startDate: 1 }</code> — for scheduler queries</li>
+
+<hr>
+
+<h2>3. <code>itinerary_days</code> Collection</h2>
+
+<p>Day-by-day breakdown with time-slotted activity cards.</p>
+
+<pre><code>{
+<p>"_id": "ObjectId",</p>
+<p>"tripId": "ObjectId (ref: trips)",</p>
+<p>"dayNumber": "number (1-indexed)",</p>
+<p>"date": "ISODate",</p>
+<p>"theme": "string (e.g., 'Temple Trail &amp; Tea Ceremony')",</p>
+<p>"slots": [{</p>
+<p>"slotId": "string (UUID)",</p>
+<p>"startTime": "string (HH:mm, 24h)",</p>
+<p>"endTime": "string (HH:mm, 24h)",</p>
+<p>"activity": {</p>
+<p>"type": "enum: ATTRACTION | EXPERIENCE | MEAL | TRANSPORT | FREE_TIME | CHECK_IN | CHECK_OUT",</p>
+<p>"title": "string",</p>
+<p>"description": "string",</p>
+<p>"location": {</p>
+<p>"name": "string",</p>
+<p>"address": "string",</p>
+<p>"coordinates": {</p>
+<p>"type": "Point",</p>
+<p>"coordinates": ["longitude", "latitude"]</p>
+<p>}</p>
+<p>},</p>
+<p>"duration": "number (minutes)",</p>
+<p>"cost": {</p>
+<p>"amount": "number (cents)",</p>
+<p>"currency": "string"</p>
+<p>},</p>
+<p>"bookingUrl": "string (nullable)",</p>
+<p>"experienceId": "ObjectId (nullable, ref: experiences)",</p>
+<p>"isHyperlocal": "boolean",</p>
+<p>"tags": ["string"],</p>
+<p>"imageUrl": "string (nullable)"</p>
+<p>},</p>
+<p>"transport": {</p>
+<p>"mode": "enum: WALK | METRO | BUS | TAXI | RENTAL | BIKE | FERRY",</p>
+<p>"from": "string",</p>
+<p>"to": "string",</p>
+<p>"duration": "number (minutes)",</p>
+<p>"cost": "number (cents)",</p>
+<p>"notes": "string (e.g., 'Take Karasuma Line to Gojo Station')"</p>
+<p>},</p>
+<p>"status": "enum: SCHEDULED | IN_PROGRESS | COMPLETED | SKIPPED | REPLANNED",</p>
+<p>"replanNote": "string (nullable, e.g., 'Moved indoors due to rain')"</p>
+<p>}],</p>
+<p>"weatherForecast": {</p>
+<p>"condition": "string",</p>
+<p>"tempHighC": "number",</p>
+<p>"tempLowC": "number",</p>
+<p>"precipitation": "number (percentage)",</p>
+<p>"icon": "string"</p>
+<p>},</p>
+<p>"version": "number",</p>
+<p>"createdAt": "ISODate",</p>
+<p>"updatedAt": "ISODate"</p>
+<p>}</code></pre></p>
+
+<strong>Indexes:</strong>
+<li><code>{ tripId: 1, dayNumber: 1 }</code> — compound unique</li>
+<li><code>{ date: 1 }</code></li>
+<li><code>{ "slots.activity.location.coordinates": "2dsphere" }</code></li>
+
+<hr>
+
+<h2>4. <code>experiences</code> Collection</h2>
+
+<p>Creator-listed hyperlocal experiences for the marketplace.</p>
+
+<pre><code>{
+<p>"_id": "ObjectId",</p>
+<p>"creatorId": "ObjectId (ref: users)",</p>
+<p>"title": "string",</p>
+<p>"description": "string (max 2000 chars)",</p>
+<p>"category": "enum: FOOD | CULTURE | ADVENTURE | NIGHTLIFE | WELLNESS | NATURE | SHOPPING",</p>
+<p>"subcategory": "string (nullable)",</p>
+<p>"price": {</p>
+<p>"amount": "number (cents)",</p>
+<p>"currency": "string (ISO 4217)",</p>
+<p>"pricingType": "enum: PER_PERSON | PER_GROUP | FREE"</p>
+<p>},</p>
+<p>"duration": "number (minutes)",</p>
+<p>"maxGroupSize": "number",</p>
+<p>"minGroupSize": "number (default: 1)",</p>
+<p>"location": {</p>
+<p>"city": "string",</p>
+<p>"address": "string",</p>
+<p>"meetingPoint": "string",</p>
+<p>"coordinates": {</p>
+<p>"type": "Point",</p>
+<p>"coordinates": ["longitude", "latitude"]</p>
+<p>}</p>
+<p>},</p>
+<p>"availability": [{</p>
+<p>"type": "enum: RECURRING | ONE_OFF",</p>
+<p>"dayOfWeek": "number (0=Sun, nullable for ONE_OFF)",</p>
+<p>"startTime": "string (HH:mm)",</p>
+<p>"endTime": "string (HH:mm)",</p>
+<p>"specificDate": "ISODate (nullable, for ONE_OFF)",</p>
+<p>"maxBookings": "number",</p>
+<p>"currentBookings": "number"</p>
+<p>}],</p>
+<p>"media": [{</p>
+<p>"type": "enum: IMAGE | VIDEO",</p>
+<p>"url": "string",</p>
+<p>"gridFsId": "ObjectId (nullable)",</p>
+<p>"caption": "string",</p>
+<p>"isPrimary": "boolean"</p>
+<p>}],</p>
+<p>"tags": ["string"],</p>
+<p>"hyperlocal": "boolean (default: true)",</p>
+<p>"languages": ["string (ISO 639-1)"],</p>
+<p>"accessibilityInfo": "string (nullable)",</p>
+<p>"cancellationPolicy": "enum: FLEXIBLE | MODERATE | STRICT",</p>
+<p>"rating": "number (0-5, computed)",</p>
+<p>"reviewCount": "number",</p>
+<p>"bookingCount": "number",</p>
+<p>"status": "enum: DRAFT | ACTIVE | PAUSED | ARCHIVED",</p>
+<p>"commissionRate": "number (percentage, platform default or custom)",</p>
+<p>"createdAt": "ISODate",</p>
+<p>"updatedAt": "ISODate"</p>
+<p>}</code></pre></p>
+
+<strong>Indexes:</strong>
+<li><code>{ creatorId: 1 }</code></li>
+<li><code>{ "location.coordinates": "2dsphere" }</code></li>
+<li><code>{ category: 1, "location.city": 1, status: 1 }</code></li>
+<li><code>{ hyperlocal: 1, status: 1, rating: -1 }</code></li>
+<li><code>{ tags: 1 }</code></li>
+
+<hr>
+
+<h2>5. <code>events</code> Collection</h2>
+
+<p>Aggregated events from all sources.</p>
+
+<pre><code>{
+<p>"_id": "ObjectId",</p>
+<p>"source": "enum: CREATOR | EVENTBRITE | FACEBOOK | INSTAGRAM",</p>
+<p>"externalId": "string (nullable, source's event ID)",</p>
+<p>"title": "string",</p>
+<p>"description": "string",</p>
+<p>"category": "string",</p>
+<p>"startTime": "ISODate",</p>
+<p>"endTime": "ISODate (nullable)",</p>
+<p>"location": {</p>
+<p>"city": "string",</p>
+<p>"venueName": "string",</p>
+<p>"address": "string",</p>
+<p>"coordinates": {</p>
+<p>"type": "Point",</p>
+<p>"coordinates": ["longitude", "latitude"]</p>
+<p>}</p>
+<p>},</p>
+<p>"price": {</p>
+<p>"amount": "number (cents, 0 = free)",</p>
+<p>"currency": "string"</p>
+<p>},</p>
+<p>"capacity": "number (nullable)",</p>
+<p>"ticketsRemaining": "number (nullable)",</p>
+<p>"tags": ["string"],</p>
+<p>"externalUrl": "string (nullable)",</p>
+<p>"imageUrl": "string (nullable)",</p>
+<p>"creatorId": "ObjectId (nullable, ref: users)",</p>
+<p>"familyFriendly": "boolean",</p>
+<p>"ageRestriction": "number (nullable, minimum age)",</p>
+<p>"lastSyncedAt": "ISODate (for external sources)",</p>
+<p>"status": "enum: UPCOMING | ONGOING | PAST | CANCELLED",</p>
+<p>"createdAt": "ISODate"</p>
+<p>}</code></pre></p>
+
+<strong>Indexes:</strong>
+<li><code>{ "location.city": 1, startTime: 1, status: 1 }</code></li>
+<li><code>{ "location.coordinates": "2dsphere" }</code></li>
+<li><code>{ source: 1, externalId: 1 }</code> — compound unique for deduplication</li>
+<li><code>{ startTime: 1 }</code> — TTL index to auto-delete events older than 30 days</li>
+
+<hr>
+
+<h2>6. <code>bookings</code> Collection</h2>
+
+<pre><code>{
+<p>"_id": "ObjectId",</p>
+<p>"travelerId": "ObjectId (ref: users)",</p>
+<p>"creatorId": "ObjectId (ref: users)",</p>
+<p>"experienceId": "ObjectId (ref: experiences)",</p>
+<p>"tripId": "ObjectId (nullable, ref: trips)",</p>
+<p>"date": "ISODate",</p>
+<p>"timeSlot": {</p>
+<p>"start": "string (HH:mm)",</p>
+<p>"end": "string (HH:mm)"</p>
+<p>},</p>
+<p>"groupSize": "number",</p>
+<p>"totalAmount": "number (cents)",</p>
+<p>"platformFee": "number (cents)",</p>
+<p>"creatorPayout": "number (cents)",</p>
+<p>"currency": "string",</p>
+<p>"status": "enum: PENDING | CONFIRMED | DECLINED | CANCELLED | COMPLETED | REFUNDED | NO_SHOW",</p>
+<p>"payment": {</p>
+<p>"stripePaymentIntentId": "string",</p>
+<p>"stripeTransferId": "string (nullable, for payout)",</p>
+<p>"status": "enum: PENDING | SUCCEEDED | FAILED | REFUNDED",</p>
+<p>"paidAt": "ISODate (nullable)",</p>
+<p>"refundedAt": "ISODate (nullable)"</p>
+<p>},</p>
+<p>"cancellation": {</p>
+<p>"cancelledBy": "enum: TRAVELER | CREATOR | SYSTEM (nullable)",</p>
+<p>"reason": "string (nullable)",</p>
+<p>"cancelledAt": "ISODate (nullable)",</p>
+<p>"refundAmount": "number (cents, nullable)"</p>
+<p>},</p>
+<p>"specialRequests": "string (nullable)",</p>
+<p>"injectedByAI": "boolean (true if booked from AI-generated itinerary)",</p>
+<p>"createdAt": "ISODate",</p>
+<p>"updatedAt": "ISODate"</p>
+<p>}</code></pre></p>
+
+<strong>Indexes:</strong>
+<li><code>{ travelerId: 1, status: 1 }</code></li>
+<li><code>{ creatorId: 1, date: 1 }</code></li>
+<li><code>{ experienceId: 1, date: 1 }</code></li>
+<li><code>{ status: 1, date: 1 }</code></li>
+
+<hr>
+
+<h2>7. <code>reviews</code> Collection</h2>
+
+<pre><code>{
+<p>"_id": "ObjectId",</p>
+<p>"bookingId": "ObjectId (ref: bookings, unique)",</p>
+<p>"reviewerId": "ObjectId (ref: users)",</p>
+<p>"experienceId": "ObjectId (ref: experiences)",</p>
+<p>"creatorId": "ObjectId (ref: users)",</p>
+<p>"rating": "number (1-5)",</p>
+<p>"title": "string (max 100 chars)",</p>
+<p>"body": "string (max 1000 chars)",</p>
+<p>"photos": ["string (URLs)"],</p>
+<p>"helpfulCount": "number",</p>
+<p>"response": {</p>
+<p>"body": "string (creator reply, nullable)",</p>
+<p>"respondedAt": "ISODate (nullable)"</p>
+<p>},</p>
+<p>"verified": "boolean (true if booking was completed)",</p>
+<p>"createdAt": "ISODate",</p>
+<p>"updatedAt": "ISODate"</p>
+<p>}</code></pre></p>
+
+<strong>Indexes:</strong>
+<li><code>{ experienceId: 1, createdAt: -1 }</code></li>
+<li><code>{ creatorId: 1, rating: 1 }</code></li>
+<li><code>{ bookingId: 1 }</code> — unique</li>
+
+<hr>
+
+<h2>8. <code>footfall_grid</code> Collection</h2>
+
+<p>Precomputed heatmap data for crowd intelligence.</p>
+
+<pre><code>{
+<p>"_id": "ObjectId",</p>
+<p>"city": "string",</p>
+<p>"gridCell": {</p>
+<p>"type": "Polygon",</p>
+<p>"coordinates": [["array of [lng, lat] forming polygon"]]</p>
+<p>},</p>
+<p>"centroid": {</p>
+<p>"type": "Point",</p>
+<p>"coordinates": ["longitude", "latitude"]</p>
+<p>},</p>
+<p>"hour": "number (0-23)",</p>
+<p>"dayOfWeek": "number (0=Sun)",</p>
+<p>"footfallScore": "number (0-100, normalized)",</p>
+<p>"crowdLevel": "enum: LOW | MODERATE | HIGH | VERY_HIGH",</p>
+<p>"dataPoints": "number (sample size)",</p>
+<p>"bestTimeToVisit": "string (e.g., 'Early morning or after 5 PM')",</p>
+<p>"lastComputedAt": "ISODate",</p>
+<p>"expiresAt": "ISODate (TTL, 1 hour)"</p>
+<p>}</code></pre></p>
+
+<strong>Indexes:</strong>
+<li><code>{ city: 1, hour: 1 }</code></li>
+<li><code>{ gridCell: "2dsphere" }</code></li>
+<li><code>{ centroid: "2dsphere" }</code></li>
+<li><code>{ expiresAt: 1 }</code> — TTL index (auto-delete expired grids)</li>
+
+<hr>
+
+<h2>9. <code>messages</code> Collection</h2>
+
+<p>Creator ↔ traveler direct messaging.</p>
+
+<pre><code>{
+<p>"_id": "ObjectId",</p>
+<p>"conversationId": "string (sorted pair: min(userId1,userId2)_max(userId1,userId2))",</p>
+<p>"senderId": "ObjectId (ref: users)",</p>
+<p>"recipientId": "ObjectId (ref: users)",</p>
+<p>"body": "string (max 2000 chars)",</p>
+<p>"attachments": [{</p>
+<p>"type": "enum: IMAGE | FILE",</p>
+<p>"url": "string",</p>
+<p>"fileName": "string"</p>
+<p>}],</p>
+<p>"readAt": "ISODate (nullable)",</p>
+<p>"createdAt": "ISODate"</p>
+<p>}</code></pre></p>
+
+<strong>Indexes:</strong>
+<li><code>{ conversationId: 1, createdAt: -1 }</code></li>
+<li><code>{ recipientId: 1, readAt: 1 }</code></li>
+
+<hr>
+
+<h2>10. <code>notifications</code> Collection</h2>
+
+<pre><code>{
+<p>"_id": "ObjectId",</p>
+<p>"userId": "ObjectId (ref: users)",</p>
+<p>"type": "enum: BOOKING_CONFIRMED | BOOKING_DECLINED | REPLAN_ALERT | REVIEW_RECEIVED | MESSAGE | PAYOUT | SYSTEM",</p>
+<p>"title": "string",</p>
+<p>"body": "string",</p>
+<p>"data": {</p>
+<p>"tripId": "ObjectId (nullable)",</p>
+<p>"bookingId": "ObjectId (nullable)",</p>
+<p>"experienceId": "ObjectId (nullable)",</p>
+<p>"link": "string (in-app deep link)"</p>
+<p>},</p>
+<p>"channels": {</p>
+<p>"inApp": "boolean",</p>
+<p>"email": "boolean",</p>
+<p>"push": "boolean"</p>
+<p>},</p>
+<p>"read": "boolean (default: false)",</p>
+<p>"emailSentAt": "ISODate (nullable)",</p>
+<p>"pushSentAt": "ISODate (nullable)",</p>
+<p>"createdAt": "ISODate",</p>
+<p>"expiresAt": "ISODate (TTL, 90 days)"</p>
+<p>}</code></pre></p>
+
+<strong>Indexes:</strong>
+<li><code>{ userId: 1, read: 1, createdAt: -1 }</code></li>
+<li><code>{ expiresAt: 1 }</code> — TTL index</li>
+
+<hr>
+
+<h2>11. <code>replan_logs</code> Collection</h2>
+
+<p>Audit trail for all dynamic replanning decisions.</p>
+
+<pre><code>{
+<p>"_id": "ObjectId",</p>
+<p>"tripId": "ObjectId (ref: trips)",</p>
+<p>"dayNumber": "number",</p>
+<p>"triggeredBy": "enum: WEATHER | TRAFFIC | VENUE_CLOSURE | USER_REQUEST | SYSTEM",</p>
+<p>"reasonCode": "string (e.g., 'STORM_ALERT', 'HEAVY_CONGESTION', 'VENUE_CLOSED')",</p>
+<p>"reasonDetail": "string (human-readable explanation)",</p>
+<p>"affectedSlots": ["string (slotIds)"],</p>
+<p>"diff": {</p>
+<p>"removed": [{</p>
+<p>"slotId": "string",</p>
+<p>"title": "string",</p>
+<p>"startTime": "string",</p>
+<p>"endTime": "string"</p>
+<p>}],</p>
+<p>"added": [{</p>
+<p>"slotId": "string",</p>
+<p>"title": "string",</p>
+<p>"startTime": "string",</p>
+<p>"endTime": "string"</p>
+<p>}],</p>
+<p>"modified": [{</p>
+<p>"slotId": "string",</p>
+<p>"field": "string",</p>
+<p>"oldValue": "string",</p>
+<p>"newValue": "string"</p>
+<p>}]</p>
+<p>},</p>
+<p>"previousVersion": "number",</p>
+<p>"newVersion": "number",</p>
+<p>"claudePromptTokens": "number",</p>
+<p>"claudeResponseTokens": "number",</p>
+<p>"processingTimeMs": "number",</p>
+<p>"accepted": "boolean (nullable, user accepted/rejected replan)",</p>
+<p>"createdAt": "ISODate"</p>
+<p>}</code></pre></p>
+
+<strong>Indexes:</strong>
+<li><code>{ tripId: 1, createdAt: -1 }</code></li>
+<li><code>{ triggeredBy: 1, createdAt: -1 }</code> — analytics</li>
+
+<footer style="margin-top:3rem;padding-top:1rem;border-top:1px solid #e5e7eb;color:#9ca3af;font-size:0.8rem;text-align:center;">LocalLens Architecture Documentation - Generated 2026-03-14</footer>
+</body></html>

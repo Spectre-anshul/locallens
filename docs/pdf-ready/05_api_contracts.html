@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html><head>
+<meta charset="UTF-8">
+<title>LocalLens - 05 api contracts</title>
+<style>body { font-family: Segoe UI, -apple-system, sans-serif; max-width: 900px; margin: 2rem auto; padding: 0 2rem; color: #1a1a2e; line-height: 1.7; }
+h1 { color: #4f46e5; border-bottom: 3px solid #4f46e5; padding-bottom: 0.5rem; margin-top: 2rem; }
+h2 { color: #6366f1; border-bottom: 1px solid #e5e7eb; padding-bottom: 0.3rem; margin-top: 1.5rem; }
+h3 { color: #7c3aed; margin-top: 1.2rem; }
+code { background: #f3f4f6; padding: 2px 6px; border-radius: 4px; font-size: 0.9em; }
+pre { background: #1e1e2e; color: #cdd6f4; padding: 1rem; border-radius: 8px; overflow-x: auto; font-size: 0.85rem; }
+pre code { background: none; padding: 0; color: inherit; }
+table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
+th, td { border: 1px solid #d1d5db; padding: 0.5rem 0.75rem; text-align: left; font-size: 0.9rem; }
+th { background: #f3f4f6; font-weight: 600; }
+tr:nth-child(even) { background: #f9fafb; }
+blockquote { border-left: 4px solid #4f46e5; padding-left: 1rem; color: #6b7280; margin: 1rem 0; }
+hr { border: none; border-top: 2px solid #e5e7eb; margin: 2rem 0; }
+@media print { body { max-width: 100%; margin: 0; } pre { white-space: pre-wrap; } }</style>
+</head><body>
+<h1>LocalLens — API Contracts</h1>
+
+<p>> All endpoints require <code>Authorization: Bearer <JWT></code> unless marked 🔓 (public).</p>
+<p>> Pagination uses <code>?page=0&size=20&sort=createdAt,desc</code>.</p>
+<p>> All monetary values are in <strong>cents</strong> (integer).</p>
+<p>> Error responses follow <code>{ "error": "CODE", "message": "Human-readable", "timestamp": "ISO" }</code>.</p>
+
+<hr>
+
+<h2>Authentication</h2>
+
+<tr><td>Method</td><td>Path</td><td>Auth</td><td>Description</td></tr>
+<tr><td>🔓 POST</td><td><code>/api/auth/register</code></td><td>—</td><td>Register new user</td></tr>
+<tr><td>🔓 POST</td><td><code>/api/auth/login</code></td><td>—</td><td>Login with email/password</td></tr>
+<tr><td>🔓 POST</td><td><code>/api/auth/oauth2/{provider}</code></td><td>—</td><td>OAuth2 login (google/apple)</td></tr>
+<tr><td>🔓 POST</td><td><code>/api/auth/refresh</code></td><td>—</td><td>Refresh access token</td></tr>
+<tr><td>POST</td><td><code>/api/auth/logout</code></td><td>JWT</td><td>Invalidate refresh token</td></tr>
+<tr><td>GET</td><td><code>/api/auth/me</code></td><td>JWT</td><td>Get current user profile</td></tr>
+<tr><td>PATCH</td><td><code>/api/auth/me/preferences</code></td><td>JWT</td><td>Update user preferences</td></tr>
+
+<h3>POST <code>/api/auth/register</code></h3>
+<pre><code>// Request
+<p>{ "email": "user@example.com", "password": "SecureP@ss1", "firstName": "Aiko", "lastName": "Tanaka", "role": "TRAVELER" }</p>
+
+<p>// Response 201</p>
+<p>{ "accessToken": "eyJ...", "refreshToken": "abc...", "user": { "id": "6601...", "email": "user@example.com", "firstName": "Aiko", "lastName": "Tanaka", "role": "TRAVELER", "preferences": null } }</code></pre></p>
+
+<h3>POST <code>/api/auth/login</code></h3>
+<pre><code>// Request
+<p>{ "email": "user@example.com", "password": "SecureP@ss1" }</p>
+
+<p>// Response 200 — same shape as register response</p>
+
+<p>// Error 401</p>
+<p>{ "error": "INVALID_CREDENTIALS", "message": "Invalid email or password" }</code></pre></p>
+
+<h3>POST <code>/api/auth/oauth2/google</code></h3>
+<pre><code>// Request
+<p>{ "idToken": "eyJ... (Google ID token)" }</p>
+
+<p>// Response 200 — same shape as register (creates account if first login)</code></pre></p>
+
+<hr>
+
+<h2>Trips</h2>
+
+<tr><td>Method</td><td>Path</td><td>Auth</td><td>Description</td></tr>
+<tr><td>POST</td><td><code>/api/trips</code></td><td>TRAVELER</td><td>Create new trip</td></tr>
+<tr><td>GET</td><td><code>/api/trips</code></td><td>TRAVELER</td><td>List user's trips</td></tr>
+<tr><td>GET</td><td><code>/api/trips/{tripId}</code></td><td>TRAVELER</td><td>Get trip detail</td></tr>
+<tr><td>PATCH</td><td><code>/api/trips/{tripId}</code></td><td>TRAVELER</td><td>Update trip</td></tr>
+<tr><td>DELETE</td><td><code>/api/trips/{tripId}</code></td><td>TRAVELER</td><td>Delete trip</td></tr>
+<tr><td>POST</td><td><code>/api/trips/{tripId}/flights</code></td><td>TRAVELER</td><td>Add flight</td></tr>
+<tr><td>DELETE</td><td><code>/api/trips/{tripId}/flights/{idx}</code></td><td>TRAVELER</td><td>Remove flight</td></tr>
+<tr><td>POST</td><td><code>/api/trips/{tripId}/accommodation</code></td><td>TRAVELER</td><td>Add accommodation</td></tr>
+<tr><td>POST</td><td><code>/api/trips/{tripId}/documents</code></td><td>TRAVELER</td><td>Upload document (multipart)</td></tr>
+<tr><td>GET</td><td><code>/api/trips/{tripId}/documents/{docId}</code></td><td>TRAVELER</td><td>Download document</td></tr>
+<tr><td>GET</td><td><code>/api/trips/{tripId}/budget</code></td><td>TRAVELER</td><td>Get budget breakdown</td></tr>
+<tr><td>POST</td><td><code>/api/trips/{tripId}/budget/expense</code></td><td>TRAVELER</td><td>Log expense</td></tr>
+
+<h3>POST <code>/api/trips</code></h3>
+<pre><code>// Request
+<p>{</p>
+<p>"title": "Kyoto Adventure 2026",</p>
+<p>"destination": { "city": "Kyoto", "country": "Japan", "lat": 35.0116, "lng": 135.7681 },</p>
+<p>"startDate": "2026-04-15",</p>
+<p>"endDate": "2026-04-22",</p>
+<p>"groupSize": 2,</p>
+<p>"travelStyle": "COMFORT",</p>
+<p>"interests": ["Food", "Culture", "Nature"],</p>
+<p>"accessibilityNeeds": [],</p>
+<p>"budget": { "total": 350000, "currency": "USD" }</p>
+<p>}</p>
+
+<p>// Response 201</p>
+<p>{</p>
+<p>"id": "6601abc...",</p>
+<p>"title": "Kyoto Adventure 2026",</p>
+<p>"destination": { "city": "Kyoto", "country": "Japan" },</p>
+<p>"startDate": "2026-04-15",</p>
+<p>"endDate": "2026-04-22",</p>
+<p>"durationDays": 7,</p>
+<p>"status": "DRAFT",</p>
+<p>"budget": { "total": 350000, "spent": 0, "currency": "USD" },</p>
+<p>"createdAt": "2026-03-14T16:00:00Z"</p>
+<p>}</code></pre></p>
+
+<h3>GET <code>/api/trips/{tripId}/budget</code></h3>
+<pre><code>// Response 200
+<p>{</p>
+<p>"total": 350000,</p>
+<p>"spent": 127500,</p>
+<p>"remaining": 222500,</p>
+<p>"currency": "USD",</p>
+<p>"breakdown": {</p>
+<p>"accommodation": { "budgeted": 150000, "spent": 89000, "percentage": 59 },</p>
+<p>"food": { "budgeted": 70000, "spent": 23000, "percentage": 33 },</p>
+<p>"transport": { "budgeted": 50000, "spent": 12500, "percentage": 25 },</p>
+<p>"activities": { "budgeted": 60000, "spent": 3000, "percentage": 5 },</p>
+<p>"shopping": { "budgeted": 15000, "spent": 0, "percentage": 0 },</p>
+<p>"miscellaneous": { "budgeted": 5000, "spent": 0, "percentage": 0 }</p>
+<p>}</p>
+<p>}</code></pre></p>
+
+<hr>
+
+<h2>Itinerary</h2>
+
+<tr><td>Method</td><td>Path</td><td>Auth</td><td>Description</td></tr>
+<tr><td>POST</td><td><code>/api/itinerary/generate</code></td><td>TRAVELER</td><td>Generate AI itinerary</td></tr>
+<tr><td>GET</td><td><code>/api/itinerary/{tripId}/days</code></td><td>TRAVELER</td><td>Get all itinerary days</td></tr>
+<tr><td>GET</td><td><code>/api/itinerary/{tripId}/days/{dayNumber}</code></td><td>TRAVELER</td><td>Get single day</td></tr>
+<tr><td>PATCH</td><td><code>/api/itinerary/{tripId}/days/{dayNumber}/slots/reorder</code></td><td>TRAVELER</td><td>Reorder slots</td></tr>
+<tr><td>POST</td><td><code>/api/itinerary/{tripId}/replan</code></td><td>TRAVELER</td><td>Request manual replan</td></tr>
+<tr><td>GET</td><td><code>/api/itinerary/{tripId}/status</code></td><td>TRAVELER</td><td>Get generation status</td></tr>
+
+<h3>POST <code>/api/itinerary/generate</code></h3>
+<pre><code>// Request
+<p>{ "tripId": "6601abc..." }</p>
+
+<p>// Response 202 (Accepted — generation is async)</p>
+<p>{ "tripId": "6601abc...", "status": "GENERATING", "estimatedSeconds": 15 }</code></pre></p>
+
+<h3>GET <code>/api/itinerary/{tripId}/days</code></h3>
+<pre><code>// Response 200
+<p>[</p>
+<p>{</p>
+<p>"id": "6602abc...",</p>
+<p>"tripId": "6601abc...",</p>
+<p>"dayNumber": 1,</p>
+<p>"date": "2026-04-15",</p>
+<p>"theme": "Temple Trail &amp; Tea Ceremony",</p>
+<p>"weatherForecast": { "condition": "Partly Cloudy", "tempHighC": 22, "tempLowC": 14, "precipitation": 10 },</p>
+<p>"slots": [</p>
+<p>{</p>
+<p>"slotId": "s1-uuid",</p>
+<p>"startTime": "09:00",</p>
+<p>"endTime": "11:00",</p>
+<p>"activity": {</p>
+<p>"type": "ATTRACTION",</p>
+<p>"title": "Fushimi Inari Shrine Hike",</p>
+<p>"description": "Walk through thousands of vermillion torii gates...",</p>
+<p>"location": { "name": "Fushimi Inari Taisha", "address": "68 Fukakusa...", "coordinates": { "type": "Point", "coordinates": [135.7727, 34.9671] } },</p>
+<p>"duration": 120,</p>
+<p>"cost": { "amount": 0, "currency": "JPY" },</p>
+<p>"isHyperlocal": false,</p>
+<p>"tags": ["Nature", "Culture"]</p>
+<p>},</p>
+<p>"transport": { "mode": "METRO", "from": "Kyoto Station", "to": "Inari Station", "duration": 5, "cost": 150, "notes": "JR Nara Line, 2 stops" },</p>
+<p>"status": "SCHEDULED"</p>
+<p>},</p>
+<p>{</p>
+<p>"slotId": "s2-uuid",</p>
+<p>"startTime": "11:30",</p>
+<p>"endTime": "13:00",</p>
+<p>"activity": {</p>
+<p>"type": "EXPERIENCE",</p>
+<p>"title": "Local Ramen Tasting with Chef Hiro",</p>
+<p>"experienceId": "exp-123",</p>
+<p>"isHyperlocal": true,</p>
+<p>"tags": ["Food", "Culture"]</p>
+<p>},</p>
+<p>"status": "SCHEDULED"</p>
+<p>}</p>
+<p>],</p>
+<p>"version": 1</p>
+<p>}</p>
+<p>]</code></pre></p>
+
+<h3>POST <code>/api/itinerary/{tripId}/replan</code></h3>
+<pre><code>// Request
+<p>{ "reason": "I want to skip the museum and do something outdoors instead", "slotIds": ["s3-uuid", "s4-uuid"] }</p>
+
+<p>// Response 200</p>
+<p>{</p>
+<p>"tripId": "6601abc...",</p>
+<p>"dayNumber": 2,</p>
+<p>"diff": {</p>
+<p>"removed": [{ "slotId": "s3-uuid", "title": "National Museum", "startTime": "14:00" }],</p>
+<p>"added": [{ "slotId": "s3-new", "title": "Arashiyama Bamboo Grove", "startTime": "14:00" }],</p>
+<p>"modified": [{ "slotId": "s4-uuid", "field": "startTime", "oldValue": "16:00", "newValue": "16:30" }]</p>
+<p>}</p>
+<p>}</code></pre></p>
+
+<hr>
+
+<h2>Experiences (Marketplace)</h2>
+
+<tr><td>Method</td><td>Path</td><td>Auth</td><td>Description</td></tr>
+<tr><td>🔓 GET</td><td><code>/api/experiences</code></td><td>—</td><td>Search experiences</td></tr>
+<tr><td>🔓 GET</td><td><code>/api/experiences/{id}</code></td><td>—</td><td>Get detail</td></tr>
+<tr><td>🔓 GET</td><td><code>/api/experiences/{id}/reviews</code></td><td>—</td><td>Get reviews</td></tr>
+<tr><td>POST</td><td><code>/api/experiences/{id}/book</code></td><td>TRAVELER</td><td>Book experience</td></tr>
+<tr><td>POST</td><td><code>/api/experiences/bookings/{id}/review</code></td><td>TRAVELER</td><td>Leave review</td></tr>
+
+<h3>GET <code>/api/experiences?city=Kyoto&category=FOOD&maxPrice=5000&sortBy=rating</code></h3>
+<pre><code>// Response 200
+<p>{</p>
+<p>"content": [</p>
+<p>{</p>
+<p>"id": "exp-123",</p>
+<p>"title": "Local Ramen Tasting with Chef Hiro",</p>
+<p>"category": "FOOD",</p>
+<p>"price": { "amount": 2800, "currency": "JPY", "pricingType": "PER_PERSON" },</p>
+<p>"duration": 90,</p>
+<p>"rating": 4.8,</p>
+<p>"reviewCount": 47,</p>
+<p>"location": { "city": "Kyoto", "coordinates": { "type": "Point", "coordinates": [135.77, 35.01] } },</p>
+<p>"creator": { "id": "creator-1", "name": "Chef Hiro", "verified": true },</p>
+<p>"primaryImage": "https://...",</p>
+<p>"hyperlocal": true</p>
+<p>}</p>
+<p>],</p>
+<p>"totalElements": 34,</p>
+<p>"page": 0,</p>
+<p>"size": 20</p>
+<p>}</code></pre></p>
+
+<h3>POST <code>/api/experiences/{id}/book</code></h3>
+<pre><code>// Request
+<p>{ "date": "2026-04-16", "timeSlot": "19:00", "groupSize": 2, "specialRequests": "Vegetarian option for one person", "tripId": "6601abc..." }</p>
+
+<p>// Response 201</p>
+<p>{</p>
+<p>"bookingId": "bk-456",</p>
+<p>"status": "PENDING",</p>
+<p>"totalAmount": 5600,</p>
+<p>"currency": "JPY",</p>
+<p>"stripeClientSecret": "pi_xxx_secret_xxx"</p>
+<p>}</code></pre></p>
+
+<hr>
+
+<h2>Creator</h2>
+
+<tr><td>Method</td><td>Path</td><td>Auth</td><td>Description</td></tr>
+<tr><td>POST</td><td><code>/api/creator/experiences</code></td><td>CREATOR</td><td>Create experience</td></tr>
+<tr><td>PATCH</td><td><code>/api/creator/experiences/{id}</code></td><td>CREATOR</td><td>Update experience</td></tr>
+<tr><td>DELETE</td><td><code>/api/creator/experiences/{id}</code></td><td>CREATOR</td><td>Archive experience</td></tr>
+<tr><td>GET</td><td><code>/api/creator/experiences</code></td><td>CREATOR</td><td>List my experiences</td></tr>
+<tr><td>GET</td><td><code>/api/creator/bookings</code></td><td>CREATOR</td><td>List my bookings</td></tr>
+<tr><td>PATCH</td><td><code>/api/creator/bookings/{id}/accept</code></td><td>CREATOR</td><td>Accept booking</td></tr>
+<tr><td>PATCH</td><td><code>/api/creator/bookings/{id}/decline</code></td><td>CREATOR</td><td>Decline booking</td></tr>
+<tr><td>GET</td><td><code>/api/creator/dashboard</code></td><td>CREATOR</td><td>Dashboard stats</td></tr>
+<tr><td>GET</td><td><code>/api/creator/earnings?period=MONTH</code></td><td>CREATOR</td><td>Earnings data</td></tr>
+<tr><td>GET</td><td><code>/api/creator/analytics/ai-injections</code></td><td>CREATOR</td><td>AI injection stats</td></tr>
+
+<h3>GET <code>/api/creator/dashboard</code></h3>
+<pre><code>// Response 200
+<p>{</p>
+<p>"upcomingBookings": 5,</p>
+<p>"pendingBookings": 2,</p>
+<p>"totalEarnings": 1250000,</p>
+<p>"thisMonthEarnings": 340000,</p>
+<p>"activeExperiences": 3,</p>
+<p>"averageRating": 4.7,</p>
+<p>"aiInjections": { "thisMonth": 23, "total": 187 },</p>
+<p>"currency": "JPY"</p>
+<p>}</code></pre></p>
+
+<hr>
+
+<h2>Map</h2>
+
+<tr><td>Method</td><td>Path</td><td>Auth</td><td>Description</td></tr>
+<tr><td>🔓 GET</td><td><code>/api/map/heatmap</code></td><td>—</td><td>Get heatmap grid</td></tr>
+<tr><td>🔓 GET</td><td><code>/api/map/pois</code></td><td>—</td><td>Get POIs in radius</td></tr>
+<tr><td>🔓 GET</td><td><code>/api/map/pois/{id}</code></td><td>—</td><td>POI detail</td></tr>
+<tr><td>GET</td><td><code>/api/map/route</code></td><td>JWT</td><td>Route GeoJSON for trip day</td></tr>
+<tr><td>🔓 GET</td><td><code>/api/map/traffic</code></td><td>—</td><td>Traffic overlay data</td></tr>
+<tr><td>POST</td><td><code>/api/map/checkin</code></td><td>JWT</td><td>Record anonymous check-in</td></tr>
+
+<h3>GET <code>/api/map/heatmap?lat=35.01&lng=135.77&radiusKm=5&hour=14</code></h3>
+<pre><code>// Response 200
+<p>{</p>
+<p>"gridCells": [</p>
+<p>{ "centroid": [135.768, 35.012], "footfallScore": 87, "crowdLevel": "VERY_HIGH", "bestTimeToVisit": "Before 9 AM or after 4 PM" },</p>
+<p>{ "centroid": [135.772, 35.008], "footfallScore": 23, "crowdLevel": "LOW", "bestTimeToVisit": "Any time" }</p>
+<p>],</p>
+<p>"computedAt": "2026-04-15T14:30:00Z",</p>
+<p>"filterHour": 14</p>
+<p>}</code></pre></p>
+
+<hr>
+
+<h2>Events</h2>
+
+<tr><td>Method</td><td>Path</td><td>Auth</td><td>Description</td></tr>
+<tr><td>🔓 GET</td><td><code>/api/events</code></td><td>—</td><td>Search events</td></tr>
+<tr><td>🔓 GET</td><td><code>/api/events/tonight</code></td><td>—</td><td>Tonight's events</td></tr>
+<tr><td>POST</td><td><code>/api/events</code></td><td>CREATOR</td><td>Submit creator event</td></tr>
+
+<h3>GET <code>/api/events/tonight?city=Kyoto</code></h3>
+<pre><code>// Response 200
+<p>[</p>
+<p>{ "id": "evt-1", "source": "CREATOR", "title": "Underground Jazz at Bar Pigmalion", "startTime": "2026-04-15T21:00:00+09:00", "location": { "venueName": "Bar Pigmalion", "city": "Kyoto" }, "price": { "amount": 1500, "currency": "JPY" }, "ticketsRemaining": 15, "tags": ["Music", "Nightlife"] },</p>
+<p>{ "id": "evt-2", "source": "EVENTBRITE", "title": "Neighborhood Lantern Festival", "startTime": "2026-04-15T18:00:00+09:00", "location": { "venueName": "Gion District", "city": "Kyoto" }, "price": { "amount": 0, "currency": "JPY" }, "familyFriendly": true, "tags": ["Culture", "Festival"] }</p>
+<p>]</code></pre></p>
+
+<hr>
+
+<h2>Payments</h2>
+
+<tr><td>Method</td><td>Path</td><td>Auth</td><td>Description</td></tr>
+<tr><td>POST</td><td><code>/api/payments/create-intent</code></td><td>TRAVELER</td><td>Create Stripe PaymentIntent</td></tr>
+<tr><td>POST</td><td><code>/api/payments/webhook</code></td><td>— (Stripe sig)</td><td>Stripe webhook handler</td></tr>
+<tr><td>GET</td><td><code>/api/payments/creator/payouts</code></td><td>CREATOR</td><td>Payout history</td></tr>
+<tr><td>POST</td><td><code>/api/payments/creator/onboard</code></td><td>CREATOR</td><td>Start Stripe Connect onboarding</td></tr>
+
+<hr>
+
+<h2>Notifications & Messages</h2>
+
+<tr><td>Method</td><td>Path</td><td>Auth</td><td>Description</td></tr>
+<tr><td>GET</td><td><code>/api/notifications</code></td><td>JWT</td><td>Get notifications</td></tr>
+<tr><td>PATCH</td><td><code>/api/notifications/{id}/read</code></td><td>JWT</td><td>Mark as read</td></tr>
+<tr><td>PATCH</td><td><code>/api/notifications/read-all</code></td><td>JWT</td><td>Mark all read</td></tr>
+<tr><td>GET</td><td><code>/api/notifications/unread-count</code></td><td>JWT</td><td>Unread count</td></tr>
+<tr><td>GET</td><td><code>/api/messages/conversations</code></td><td>JWT</td><td>List conversations</td></tr>
+<tr><td>GET</td><td><code>/api/messages/conversations/{id}</code></td><td>JWT</td><td>Get messages</td></tr>
+<tr><td>POST</td><td><code>/api/messages/send</code></td><td>JWT</td><td>Send message</td></tr>
+
+<hr>
+
+<h2>Analytics</h2>
+
+<tr><td>Method</td><td>Path</td><td>Auth</td><td>Description</td></tr>
+<tr><td>GET</td><td><code>/api/analytics/creator/{id}/visibility</code></td><td>CREATOR/ADMIN</td><td>Creator AI injection stats</td></tr>
+<tr><td>GET</td><td><code>/api/analytics/trip/{id}/stats</code></td><td>TRAVELER</td><td>Trip analytics</td></tr>
+<tr><td>GET</td><td><code>/api/analytics/admin/platform</code></td><td>ADMIN</td><td>Platform analytics</td></tr>
+
+<hr>
+
+<h2>WebSocket STOMP Topics</h2>
+
+<tr><td>Destination</td><td>Direction</td><td>Payload</td><td>Description</td></tr>
+<tr><td><code>/topic/itinerary/{tripId}/replan</code></td><td>Server → Client</td><td><code>ReplanEvent</code></td><td>Replan triggered (weather/traffic/closure)</td></tr>
+<tr><td><code>/topic/booking/{userId}/updates</code></td><td>Server → Client</td><td><code>BookingUpdate</code></td><td>Booking confirmed/declined/cancelled</td></tr>
+<tr><td><code>/topic/map/{city}/crowd</code></td><td>Server → Client</td><td><code>CrowdUpdate</code></td><td>Live crowd data every 5 min</td></tr>
+<tr><td><code>/queue/messages/{userId}</code></td><td>Server → Client</td><td><code>MessagePayload</code></td><td>New DM received</td></tr>
+<tr><td><code>/app/checkin</code></td><td>Client → Server</td><td><code>CheckInRequest</code></td><td>User check-in at location</td></tr>
+
+<h3>WebSocket Connect</h3>
+<pre><code>URL: wss://api.locallens.com/ws
+<p>Headers: { Authorization: "Bearer eyJ..." }</p>
+<p>Protocol: STOMP over SockJS</p>
+<p>Heartbeat: 10000ms send / 10000ms receive</code></pre></p>
+
+<h3>Replan Event Payload</h3>
+<pre><code>{
+<p>"type": "REPLAN_TRIGGERED",</p>
+<p>"tripId": "6601abc...",</p>
+<p>"dayNumber": 3,</p>
+<p>"triggeredBy": "WEATHER",</p>
+<p>"reasonCode": "STORM_ALERT",</p>
+<p>"reasonDetail": "Heavy rain forecasted from 2 PM to 6 PM in Kyoto",</p>
+<p>"diff": {</p>
+<p>"removed": [{ "slotId": "s7", "title": "Arashiyama Bamboo Grove Walk", "startTime": "14:00" }],</p>
+<p>"added": [{ "slotId": "s7-new", "title": "Nishiki Market Food Tour (Indoor)", "startTime": "14:00" }],</p>
+<p>"modified": []</p>
+<p>},</p>
+<p>"timestamp": "2026-04-17T12:30:00Z"</p>
+<p>}</code></pre></p>
+
+<footer style="margin-top:3rem;padding-top:1rem;border-top:1px solid #e5e7eb;color:#9ca3af;font-size:0.8rem;text-align:center;">LocalLens Architecture Documentation - Generated 2026-03-14</footer>
+</body></html>

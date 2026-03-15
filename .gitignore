@@ -1,0 +1,35 @@
+# ─── Java / Gradle ───
+locallens-backend/.gradle/
+locallens-backend/build/
+locallens-backend/bin/
+*.class
+*.jar
+*.war
+
+# ─── Node / React ───
+locallens-frontend/node_modules/
+locallens-frontend/dist/
+locallens-frontend/.cache/
+
+# ─── IDE ───
+.idea/
+*.iml
+.vscode/
+*.swp
+*.swo
+
+# ─── Environment ───
+.env
+.env.local
+.env.*.local
+
+# ─── OS ───
+.DS_Store
+Thumbs.db
+
+# ─── Docker ───
+docker-volumes/
+
+# ─── Logs ───
+*.log
+logs/

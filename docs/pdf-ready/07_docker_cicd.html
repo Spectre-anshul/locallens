@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html><head>
+<meta charset="UTF-8">
+<title>LocalLens - 07 docker cicd</title>
+<style>body { font-family: Segoe UI, -apple-system, sans-serif; max-width: 900px; margin: 2rem auto; padding: 0 2rem; color: #1a1a2e; line-height: 1.7; }
+h1 { color: #4f46e5; border-bottom: 3px solid #4f46e5; padding-bottom: 0.5rem; margin-top: 2rem; }
+h2 { color: #6366f1; border-bottom: 1px solid #e5e7eb; padding-bottom: 0.3rem; margin-top: 1.5rem; }
+h3 { color: #7c3aed; margin-top: 1.2rem; }
+code { background: #f3f4f6; padding: 2px 6px; border-radius: 4px; font-size: 0.9em; }
+pre { background: #1e1e2e; color: #cdd6f4; padding: 1rem; border-radius: 8px; overflow-x: auto; font-size: 0.85rem; }
+pre code { background: none; padding: 0; color: inherit; }
+table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
+th, td { border: 1px solid #d1d5db; padding: 0.5rem 0.75rem; text-align: left; font-size: 0.9rem; }
+th { background: #f3f4f6; font-weight: 600; }
+tr:nth-child(even) { background: #f9fafb; }
+blockquote { border-left: 4px solid #4f46e5; padding-left: 1rem; color: #6b7280; margin: 1rem 0; }
+hr { border: none; border-top: 2px solid #e5e7eb; margin: 2rem 0; }
+@media print { body { max-width: 100%; margin: 0; } pre { white-space: pre-wrap; } }</style>
+</head><body>
+<h1>LocalLens — Docker & CI/CD Configuration</h1>
+
+<hr>
+
+<h2>Docker Compose (Local Development)</h2>
+
+<pre><code># docker-compose.yml
+<p>version: '3.9'</p>
+
+<p>services:</p>
+<p># ─── MongoDB ────────────────────────────────────────────</p>
+<p>mongodb:</p>
+<p>image: mongo:7.0</p>
+<p>container_name: locallens-mongo</p>
+<p>ports:</p>
+<p>- "27017:27017"</p>
+<p>environment:</p>
+<p>MONGO_INITDB_ROOT_USERNAME: locallens_admin</p>
+<p>MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:-devpassword}</p>
+<p>MONGO_INITDB_DATABASE: locallens</p>
+<p>volumes:</p>
+<p>- mongodb_data:/data/db</p>
+<p>- ./docker/mongo-init.js:/docker-entrypoint-initdb.d/init.js:ro</p>
+<p>healthcheck:</p>
+<p>test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]</p>
+<p>interval: 10s</p>
+<p>timeout: 5s</p>
+<p>retries: 5</p>
+<p>networks:</p>
+<p>- locallens-net</p>
+
+<p># ─── Redis ──────────────────────────────────────────────</p>
+<p>redis:</p>
+<p>image: redis:7-alpine</p>
+<p>container_name: locallens-redis</p>
+<p>ports:</p>
+<p>- "6379:6379"</p>
+<p>command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-devredispass}</p>
+<p>volumes:</p>
+<p>- redis_data:/data</p>
+<p>healthcheck:</p>
+<p>test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-devredispass}", "ping"]</p>
+<p>interval: 10s</p>
+<p>timeout: 5s</p>
+<p>retries: 5</p>
+<p>networks:</p>
+<p>- locallens-net</p>
+
+<p># ─── Spring Boot Backend ────────────────────────────────</p>
+<p>backend:</p>
+<p>build:</p>
+<p>context: ./locallens-backend</p>
+<p>dockerfile: Dockerfile</p>
+<p>container_name: locallens-backend</p>
+<p>ports:</p>
+<p>- "8080:8080"</p>
+<p>environment:</p>
+<p>SPRING_PROFILES_ACTIVE: docker</p>
+<p>SPRING_DATA_MONGODB_URI: mongodb://locallens_admin:${MONGO_PASSWORD:-devpassword}@mongodb:27017/locallens?authSource=admin</p>
+<p>SPRING_DATA_REDIS_HOST: redis</p>
+<p>SPRING_DATA_REDIS_PORT: 6379</p>
+<p>SPRING_DATA_REDIS_PASSWORD: ${REDIS_PASSWORD:-devredispass}</p>
+<p>JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-change-in-production}</p>
+<p>JWT_EXPIRATION_MS: 900000</p>
+<p>JWT_REFRESH_EXPIRATION_MS: 604800000</p>
+<p>CLAUDE_API_KEY: ${CLAUDE_API_KEY}</p>
+<p>OPENWEATHERMAP_API_KEY: ${OPENWEATHERMAP_API_KEY}</p>
+<p>TOMTOM_API_KEY: ${TOMTOM_API_KEY}</p>
+<p>GOOGLE_PLACES_API_KEY: ${GOOGLE_PLACES_API_KEY}</p>
+<p>EVENTBRITE_API_KEY: ${EVENTBRITE_API_KEY}</p>
+<p>STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}</p>
+<p>STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}</p>
+<p>STRIPE_PLATFORM_COMMISSION: 0.15</p>
+<p>SENDGRID_API_KEY: ${SENDGRID_API_KEY}</p>
+<p>GOOGLE_OAUTH_CLIENT_ID: ${GOOGLE_OAUTH_CLIENT_ID}</p>
+<p>GOOGLE_OAUTH_CLIENT_SECRET: ${GOOGLE_OAUTH_CLIENT_SECRET}</p>
+<p>CORS_ALLOWED_ORIGINS: http://localhost:5173,http://localhost:3000</p>
+<p>depends_on:</p>
+<p>mongodb:</p>
+<p>condition: service_healthy</p>
+<p>redis:</p>
+<p>condition: service_healthy</p>
+<p>healthcheck:</p>
+<p>test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]</p>
+<p>interval: 30s</p>
+<p>timeout: 10s</p>
+<p>retries: 3</p>
+<p>start_period: 40s</p>
+<p>networks:</p>
+<p>- locallens-net</p>
+
+<p># ─── React Frontend (Dev) ──────────────────────────────</p>
+<p>frontend:</p>
+<p>build:</p>
+<p>context: ./locallens-frontend</p>
+<p>dockerfile: Dockerfile.dev</p>
+<p>container_name: locallens-frontend</p>
+<p>ports:</p>
+<p>- "5173:5173"</p>
+<p>environment:</p>
+<p>VITE_API_BASE_URL: http://localhost:8080</p>
+<p>VITE_WS_BASE_URL: ws://localhost:8080/ws</p>
+<p>VITE_MAPLIBRE_STYLE: https://demotiles.maplibre.org/style.json</p>
+<p>VITE_STRIPE_PUBLISHABLE_KEY: ${STRIPE_PUBLISHABLE_KEY}</p>
+<p>volumes:</p>
+<p>- ./locallens-frontend/src:/app/src</p>
+<p>- ./locallens-frontend/public:/app/public</p>
+<p>depends_on:</p>
+<p>- backend</p>
+<p>networks:</p>
+<p>- locallens-net</p>
+
+<p>volumes:</p>
+<p>mongodb_data:</p>
+<p>redis_data:</p>
+
+<p>networks:</p>
+<p>locallens-net:</p>
+<p>driver: bridge</code></pre></p>
+
+<hr>
+
+<h2>Production Docker Compose Override</h2>
+
+<pre><code># docker-compose.prod.yml
+<p>version: '3.9'</p>
+
+<p>services:</p>
+<p>backend:</p>
+<p>build:</p>
+<p>context: ./locallens-backend</p>
+<p>dockerfile: Dockerfile</p>
+<p>target: production</p>
+<p>restart: always</p>
+<p>deploy:</p>
+<p>resources:</p>
+<p>limits:</p>
+<p>memory: 1G</p>
+<p>cpus: '1.0'</p>
+
+<p>frontend:</p>
+<p>build:</p>
+<p>context: ./locallens-frontend</p>
+<p>dockerfile: Dockerfile</p>
+<p>target: production</p>
+<p>restart: always</p>
+<p>ports:</p>
+<p>- "80:80"</p>
+<p>- "443:443"</code></pre></p>
+
+<hr>
+
+<h2>Backend Dockerfile</h2>
+
+<pre><code># locallens-backend/Dockerfile
+<p>FROM eclipse-temurin:17-jdk-alpine AS build</p>
+<p>WORKDIR /app</p>
+<p>COPY gradle gradle</p>
+<p>COPY gradlew .</p>
+<p>COPY build.gradle settings.gradle ./</p>
+<p>RUN chmod +x gradlew &amp;&amp; ./gradlew dependencies --no-daemon</p>
+<p>COPY src src</p>
+<p>RUN ./gradlew bootJar --no-daemon -x test</p>
+
+<p>FROM eclipse-temurin:17-jre-alpine AS production</p>
+<p>WORKDIR /app</p>
+<p>RUN addgroup -S locallens &amp;&amp; adduser -S locallens -G locallens</p>
+<p>COPY --from=build /app/build/libs/*.jar app.jar</p>
+<p>RUN chown -R locallens:locallens /app</p>
+<p>USER locallens</p>
+<p>EXPOSE 8080</p>
+<p>HEALTHCHECK --interval=30s --timeout=10s --retries=3 \</p>
+<p>CMD wget --spider -q http://localhost:8080/actuator/health || exit 1</p>
+<p>ENTRYPOINT ["java", "-XX:+UseContainerSupport", "-XX:MaxRAMPercentage=75.0", "-jar", "app.jar"]</code></pre></p>
+
+<h2>Frontend Dockerfile</h2>
+
+<pre><code># locallens-frontend/Dockerfile
+<h1>--- Dev stage ---</h1>
+<p>FROM node:20-alpine AS dev</p>
+<p>WORKDIR /app</p>
+<p>COPY package*.json ./</p>
+<p>RUN npm ci</p>
+<p>COPY . .</p>
+<p>EXPOSE 5173</p>
+<p>CMD ["npm", "run", "dev", "--", "--host"]</p>
+
+<h1>--- Build stage ---</h1>
+<p>FROM node:20-alpine AS build</p>
+<p>WORKDIR /app</p>
+<p>COPY package*.json ./</p>
+<p>RUN npm ci</p>
+<p>COPY . .</p>
+<p>RUN npm run build</p>
+
+<h1>--- Production stage ---</h1>
+<p>FROM nginx:alpine AS production</p>
+<p>COPY --from=build /app/dist /usr/share/nginx/html</p>
+<p>COPY docker/nginx.conf /etc/nginx/conf.d/default.conf</p>
+<p>EXPOSE 80</p>
+<p>CMD ["nginx", "-g", "daemon off;"]</code></pre></p>
+
+<h2>Nginx Config</h2>
+
+<pre><code># locallens-frontend/docker/nginx.conf
+<p>server {</p>
+<p>listen 80;</p>
+<p>server_name localhost;</p>
+<p>root /usr/share/nginx/html;</p>
+<p>index index.html;</p>
+
+<p>location / {</p>
+<p>try_files $uri $uri/ /index.html;</p>
+<p>}</p>
+
+<p>location /api/ {</p>
+<p>proxy_pass http://backend:8080;</p>
+<p>proxy_set_header Host $host;</p>
+<p>proxy_set_header X-Real-IP $remote_addr;</p>
+<p>proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;</p>
+<p>proxy_set_header X-Forwarded-Proto $scheme;</p>
+<p>}</p>
+
+<p>location /ws {</p>
+<p>proxy_pass http://backend:8080;</p>
+<p>proxy_http_version 1.1;</p>
+<p>proxy_set_header Upgrade $http_upgrade;</p>
+<p>proxy_set_header Connection "upgrade";</p>
+<p>proxy_set_header Host $host;</p>
+<p>}</p>
+
+<p>gzip on;</p>
+<p>gzip_types text/plain text/css application/json application/javascript text/xml;</p>
+<p>gzip_min_length 1000;</p>
+<p>}</code></pre></p>
+
+<hr>
+
+<h2>MongoDB Init Script</h2>
+
+<pre><code>// docker/mongo-init.js
+<p>db = db.getSiblingDB('locallens');</p>
+
+<p>// Create collections with validation</p>
+<p>db.createCollection('users');</p>
+<p>db.createCollection('trips');</p>
+<p>db.createCollection('itinerary_days');</p>
+<p>db.createCollection('experiences');</p>
+<p>db.createCollection('events');</p>
+<p>db.createCollection('bookings');</p>
+<p>db.createCollection('reviews');</p>
+<p>db.createCollection('footfall_grid');</p>
+<p>db.createCollection('messages');</p>
+<p>db.createCollection('notifications');</p>
+<p>db.createCollection('replan_logs');</p>
+
+<p>// Geospatial indexes</p>
+<p>db.users.createIndex({ "creatorProfile.location": "2dsphere" });</p>
+<p>db.trips.createIndex({ "destination.location": "2dsphere" });</p>
+<p>db.itinerary_days.createIndex({ "slots.activity.location.coordinates": "2dsphere" });</p>
+<p>db.experiences.createIndex({ "location.coordinates": "2dsphere" });</p>
+<p>db.events.createIndex({ "location.coordinates": "2dsphere" });</p>
+<p>db.footfall_grid.createIndex({ "gridCell": "2dsphere" });</p>
+<p>db.footfall_grid.createIndex({ "centroid": "2dsphere" });</p>
+
+<p>// Unique indexes</p>
+<p>db.users.createIndex({ "email": 1 }, { unique: true });</p>
+<p>db.events.createIndex({ "source": 1, "externalId": 1 }, { unique: true, sparse: true });</p>
+<p>db.reviews.createIndex({ "bookingId": 1 }, { unique: true });</p>
+<p>db.itinerary_days.createIndex({ "tripId": 1, "dayNumber": 1 }, { unique: true });</p>
+
+<p>// TTL indexes</p>
+<p>db.footfall_grid.createIndex({ "expiresAt": 1 }, { expireAfterSeconds: 0 });</p>
+<p>db.notifications.createIndex({ "expiresAt": 1 }, { expireAfterSeconds: 0 });</p>
+
+<p>// Performance indexes</p>
+<p>db.trips.createIndex({ "userId": 1, "status": 1 });</p>
+<p>db.trips.createIndex({ "status": 1, "startDate": 1 });</p>
+<p>db.bookings.createIndex({ "travelerId": 1, "status": 1 });</p>
+<p>db.bookings.createIndex({ "creatorId": 1, "date": 1 });</p>
+<p>db.experiences.createIndex({ "category": 1, "location.city": 1, "status": 1 });</p>
+<p>db.experiences.createIndex({ "hyperlocal": 1, "status": 1, "rating": -1 });</p>
+<p>db.notifications.createIndex({ "userId": 1, "read": 1, "createdAt": -1 });</p>
+<p>db.messages.createIndex({ "conversationId": 1, "createdAt": -1 });</p>
+
+<p>print('LocalLens MongoDB initialized with collections and indexes.');</code></pre></p>
+
+<hr>
+
+<h2>GitHub Actions CI/CD Pipeline</h2>
+
+<pre><code># .github/workflows/ci-cd.yml
+<p>name: LocalLens CI/CD</p>
+
+<p>on:</p>
+<p>push:</p>
+<p>branches: [main, develop]</p>
+<p>pull_request:</p>
+<p>branches: [main]</p>
+
+<p>env:</p>
+<p>REGISTRY: ghcr.io</p>
+<p>BACKEND_IMAGE: ghcr.io/${{ github.repository }}/backend</p>
+<p>FRONTEND_IMAGE: ghcr.io/${{ github.repository }}/frontend</p>
+
+<p>jobs:</p>
+<p># ─── Backend Tests ──────────────────────────────────────</p>
+<p>test-backend:</p>
+<p>runs-on: ubuntu-latest</p>
+<p>services:</p>
+<p>mongodb:</p>
+<p>image: mongo:7.0</p>
+<p>ports: ['27017:27017']</p>
+<p>options: &gt;-</p>
+<p>--health-cmd "mongosh --eval 'db.adminCommand(\"ping\")'"</p>
+<p>--health-interval 10s --health-timeout 5s --health-retries 5</p>
+<p>redis:</p>
+<p>image: redis:7-alpine</p>
+<p>ports: ['6379:6379']</p>
+<p>options: &gt;-</p>
+<p>--health-cmd "redis-cli ping" --health-interval 10s</p>
+
+<p>steps:</p>
+<p>- uses: actions/checkout@v4</p>
+<p>- uses: actions/setup-java@v4</p>
+<p>with:</p>
+<p>java-version: '17'</p>
+<p>distribution: 'temurin'</p>
+<p>cache: 'gradle'</p>
+
+<p>- name: Run backend tests</p>
+<p>working-directory: ./locallens-backend</p>
+<p>run: ./gradlew test --no-daemon</p>
+<p>env:</p>
+<p>SPRING_DATA_MONGODB_URI: mongodb://localhost:27017/locallens_test</p>
+<p>SPRING_DATA_REDIS_HOST: localhost</p>
+
+<p>- name: Upload test reports</p>
+<p>if: always()</p>
+<p>uses: actions/upload-artifact@v4</p>
+<p>with:</p>
+<p>name: backend-test-reports</p>
+<p>path: locallens-backend/build/reports/tests/</p>
+
+<p># ─── Frontend Tests ─────────────────────────────────────</p>
+<p>test-frontend:</p>
+<p>runs-on: ubuntu-latest</p>
+<p>steps:</p>
+<p>- uses: actions/checkout@v4</p>
+<p>- uses: actions/setup-node@v4</p>
+<p>with:</p>
+<p>node-version: '20'</p>
+<p>cache: 'npm'</p>
+<p>cache-dependency-path: locallens-frontend/package-lock.json</p>
+
+<p>- name: Install dependencies</p>
+<p>working-directory: ./locallens-frontend</p>
+<p>run: npm ci</p>
+
+<p>- name: Run linter</p>
+<p>working-directory: ./locallens-frontend</p>
+<p>run: npm run lint</p>
+
+<p>- name: Run tests</p>
+<p>working-directory: ./locallens-frontend</p>
+<p>run: npm test -- --coverage --watchAll=false</p>
+
+<p>- name: Build</p>
+<p>working-directory: ./locallens-frontend</p>
+<p>run: npm run build</p>
+
+<p># ─── Build &amp; Push Docker Images ─────────────────────────</p>
+<p>build-and-push:</p>
+<p>needs: [test-backend, test-frontend]</p>
+<p>if: github.ref == 'refs/heads/main'</p>
+<p>runs-on: ubuntu-latest</p>
+<p>permissions:</p>
+<p>contents: read</p>
+<p>packages: write</p>
+
+<p>steps:</p>
+<p>- uses: actions/checkout@v4</p>
+
+<p>- name: Log in to GHCR</p>
+<p>uses: docker/login-action@v3</p>
+<p>with:</p>
+<p>registry: ${{ env.REGISTRY }}</p>
+<p>username: ${{ github.actor }}</p>
+<p>password: ${{ secrets.GITHUB_TOKEN }}</p>
+
+<p>- name: Build &amp; push backend</p>
+<p>uses: docker/build-push-action@v5</p>
+<p>with:</p>
+<p>context: ./locallens-backend</p>
+<p>push: true</p>
+<p>tags: |</p>
+<p>${{ env.BACKEND_IMAGE }}:latest</p>
+<p>${{ env.BACKEND_IMAGE }}:${{ github.sha }}</p>
+
+<p>- name: Build &amp; push frontend</p>
+<p>uses: docker/build-push-action@v5</p>
+<p>with:</p>
+<p>context: ./locallens-frontend</p>
+<p>target: production</p>
+<p>push: true</p>
+<p>tags: |</p>
+<p>${{ env.FRONTEND_IMAGE }}:latest</p>
+<p>${{ env.FRONTEND_IMAGE }}:${{ github.sha }}</p>
+
+<p># ─── Deploy to Railway ──────────────────────────────────</p>
+<p>deploy:</p>
+<p>needs: [build-and-push]</p>
+<p>if: github.ref == 'refs/heads/main'</p>
+<p>runs-on: ubuntu-latest</p>
+<p>steps:</p>
+<p>- uses: actions/checkout@v4</p>
+
+<p>- name: Deploy backend to Railway</p>
+<p>uses: bervProject/railway-deploy@main</p>
+<p>with:</p>
+<p>railway_token: ${{ secrets.RAILWAY_TOKEN }}</p>
+<p>service: locallens-backend</p>
+
+<p>- name: Deploy frontend to Railway</p>
+<p>uses: bervProject/railway-deploy@main</p>
+<p>with:</p>
+<p>railway_token: ${{ secrets.RAILWAY_TOKEN }}</p>
+<p>service: locallens-frontend</code></pre></p>
+
+<hr>
+
+<h2>Environment Variables Reference</h2>
+
+<tr><td>Variable</td><td>Required</td><td>Default</td><td>Description</td></tr>
+<tr><td><code>MONGO_PASSWORD</code></td><td>Yes</td><td><code>devpassword</code></td><td>MongoDB root password</td></tr>
+<tr><td><code>REDIS_PASSWORD</code></td><td>Yes</td><td><code>devredispass</code></td><td>Redis auth password</td></tr>
+<tr><td><code>JWT_SECRET</code></td><td>Yes</td><td>—</td><td>HMAC key for JWT signing (min 256-bit)</td></tr>
+<tr><td><code>CLAUDE_API_KEY</code></td><td>Yes</td><td>—</td><td>Anthropic API key</td></tr>
+<tr><td><code>OPENWEATHERMAP_API_KEY</code></td><td>Yes</td><td>—</td><td>OpenWeatherMap API key</td></tr>
+<tr><td><code>TOMTOM_API_KEY</code></td><td>Yes</td><td>—</td><td>TomTom Traffic API key</td></tr>
+<tr><td><code>GOOGLE_PLACES_API_KEY</code></td><td>Yes</td><td>—</td><td>Google Places API key</td></tr>
+<tr><td><code>EVENTBRITE_API_KEY</code></td><td>Yes</td><td>—</td><td>Eventbrite OAuth token</td></tr>
+<tr><td><code>STRIPE_SECRET_KEY</code></td><td>Yes</td><td>—</td><td>Stripe secret key</td></tr>
+<tr><td><code>STRIPE_PUBLISHABLE_KEY</code></td><td>Yes</td><td>—</td><td>Stripe publishable key (frontend)</td></tr>
+<tr><td><code>STRIPE_WEBHOOK_SECRET</code></td><td>Yes</td><td>—</td><td>Stripe webhook signing secret</td></tr>
+<tr><td><code>SENDGRID_API_KEY</code></td><td>Phase 2</td><td>—</td><td>SendGrid API key</td></tr>
+<tr><td><code>GOOGLE_OAUTH_CLIENT_ID</code></td><td>Yes</td><td>—</td><td>Google OAuth 2.0 client ID</td></tr>
+<tr><td><code>GOOGLE_OAUTH_CLIENT_SECRET</code></td><td>Yes</td><td>—</td><td>Google OAuth 2.0 client secret</td></tr>
+<tr><td><code>RAILWAY_TOKEN</code></td><td>Deploy</td><td>—</td><td>Railway deployment token</td></tr>
+
+<footer style="margin-top:3rem;padding-top:1rem;border-top:1px solid #e5e7eb;color:#9ca3af;font-size:0.8rem;text-align:center;">LocalLens Architecture Documentation - Generated 2026-03-14</footer>
+</body></html>

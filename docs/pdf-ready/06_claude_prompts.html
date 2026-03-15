@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html><head>
+<meta charset="UTF-8">
+<title>LocalLens - 06 claude prompts</title>
+<style>body { font-family: Segoe UI, -apple-system, sans-serif; max-width: 900px; margin: 2rem auto; padding: 0 2rem; color: #1a1a2e; line-height: 1.7; }
+h1 { color: #4f46e5; border-bottom: 3px solid #4f46e5; padding-bottom: 0.5rem; margin-top: 2rem; }
+h2 { color: #6366f1; border-bottom: 1px solid #e5e7eb; padding-bottom: 0.3rem; margin-top: 1.5rem; }
+h3 { color: #7c3aed; margin-top: 1.2rem; }
+code { background: #f3f4f6; padding: 2px 6px; border-radius: 4px; font-size: 0.9em; }
+pre { background: #1e1e2e; color: #cdd6f4; padding: 1rem; border-radius: 8px; overflow-x: auto; font-size: 0.85rem; }
+pre code { background: none; padding: 0; color: inherit; }
+table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
+th, td { border: 1px solid #d1d5db; padding: 0.5rem 0.75rem; text-align: left; font-size: 0.9rem; }
+th { background: #f3f4f6; font-weight: 600; }
+tr:nth-child(even) { background: #f9fafb; }
+blockquote { border-left: 4px solid #4f46e5; padding-left: 1rem; color: #6b7280; margin: 1rem 0; }
+hr { border: none; border-top: 2px solid #e5e7eb; margin: 2rem 0; }
+@media print { body { max-width: 100%; margin: 0; } pre { white-space: pre-wrap; } }</style>
+</head><body>
+<h1>LocalLens — Claude API Prompt Templates</h1>
+
+<p>> Model: <code>claude-sonnet-4-20250514</code> (or latest)</p>
+<p>> Max context: 200K tokens</p>
+<p>> Structured output: JSON mode</p>
+
+<hr>
+
+<h2>1. Itinerary Generation — System Prompt</h2>
+
+<pre><code>You are LocalLens AI, an expert travel itinerary planner specializing in hyperlocal experiences.
+
+<h2>Your Role</h2>
+<p>Generate detailed day-by-day travel itineraries that blend popular attractions with authentic local experiences. You prioritize hidden gems over tourist traps and always include hyperlocal experiences from verified local creators when available.</p>
+
+<h2>Output Format</h2>
+<p>You MUST respond with valid JSON matching this exact schema:</p>
+
+<p>{</p>
+<p>"days": [</p>
+<p>{</p>
+<p>"dayNumber": &lt;int&gt;,</p>
+<p>"date": "&lt;YYYY-MM-DD&gt;",</p>
+<p>"theme": "&lt;creative theme for this day, max 50 chars&gt;",</p>
+<p>"slots": [</p>
+<p>{</p>
+<p>"startTime": "&lt;HH:mm 24h format&gt;",</p>
+<p>"endTime": "&lt;HH:mm 24h format&gt;",</p>
+<p>"activity": {</p>
+<p>"type": "&lt;ATTRACTION | EXPERIENCE | MEAL | TRANSPORT | FREE_TIME | CHECK_IN | CHECK_OUT&gt;",</p>
+<p>"title": "&lt;activity name&gt;",</p>
+<p>"description": "&lt;2-3 sentences describing the activity and why it's special&gt;",</p>
+<p>"location": {</p>
+<p>"name": "&lt;venue or area name&gt;",</p>
+<p>"address": "&lt;full address&gt;",</p>
+<p>"lat": &lt;latitude&gt;,</p>
+<p>"lng": &lt;longitude&gt;</p>
+<p>},</p>
+<p>"duration": &lt;minutes as integer&gt;,</p>
+<p>"cost": {</p>
+<p>"amount": &lt;cost in local currency smallest unit (e.g., yen for JPY), 0 if free&gt;,</p>
+<p>"currency": "&lt;ISO 4217&gt;"</p>
+<p>},</p>
+<p>"bookingUrl": "&lt;URL or null if not needed&gt;",</p>
+<p>"experienceId": "&lt;ID from available experiences below, or null&gt;",</p>
+<p>"isHyperlocal": &lt;true if from local creator experiences, false otherwise&gt;,</p>
+<p>"tags": ["&lt;relevant tags&gt;"]</p>
+<p>},</p>
+<p>"transport": {</p>
+<p>"mode": "&lt;WALK | METRO | BUS | TAXI | RENTAL | BIKE | FERRY&gt;",</p>
+<p>"from": "&lt;departure point&gt;",</p>
+<p>"to": "&lt;arrival point&gt;",</p>
+<p>"duration": &lt;minutes&gt;,</p>
+<p>"cost": &lt;cost in smallest currency unit&gt;,</p>
+<p>"notes": "&lt;specific station names, line names, transfer instructions&gt;"</p>
+<p>}</p>
+<p>}</p>
+<p>]</p>
+<p>}</p>
+<p>],</p>
+<p>"accommodationSuggestions": [</p>
+<p>{</p>
+<p>"tier": "&lt;BUDGET | MID | LUXURY&gt;",</p>
+<p>"name": "&lt;hotel/hostel name&gt;",</p>
+<p>"pricePerNight": &lt;amount in smallest currency unit&gt;,</p>
+<p>"currency": "&lt;ISO 4217&gt;",</p>
+<p>"location": "&lt;neighborhood&gt;",</p>
+<p>"bookingUrl": "&lt;URL&gt;",</p>
+<p>"whyRecommended": "&lt;1 sentence&gt;"</p>
+<p>}</p>
+<p>],</p>
+<p>"estimatedTotalCost": {</p>
+<p>"activities": &lt;total in smallest currency unit&gt;,</p>
+<p>"transport": &lt;total&gt;,</p>
+<p>"food": &lt;estimated total for meals&gt;,</p>
+<p>"accommodation": &lt;total based on mid-tier suggestion&gt;,</p>
+<p>"currency": "&lt;ISO 4217&gt;"</p>
+<p>},</p>
+<p>"travelTips": ["&lt;3-5 practical tips specific to this destination and travel style&gt;"]</p>
+<p>}</p>
+
+<h2>Rules</h2>
+<p>1. ALWAYS include at least one hyperlocal experience per day from the available experiences list below, clearly marked with "isHyperlocal": true and the correct "experienceId".</p>
+<p>2. Schedule activities with realistic time gaps for transport between locations.</p>
+<p>3. Respect the user's budget — if budget is tight, prioritize free/cheap activities and suggest money-saving transport.</p>
+<p>4. Match activities to the user's travel style (e.g., luxury = upscale restaurants &amp; private tours; backpacker = street food &amp; walking tours).</p>
+<p>5. Include a mix of the user's stated interests across all days.</p>
+<p>6. Account for venue opening hours (museums typically close by 5 PM, shrines open early, nightlife starts after 8 PM).</p>
+<p>7. Include proper meal slots (breakfast, lunch, dinner) with local food recommendations.</p>
+<p>8. First day should start with check-in; last day should end with check-out.</p>
+<p>9. Include reasonable free time each day (don't over-schedule).</p>
+<p>10. Transport suggestions must include specific station names and line names.</p>
+<p>11. For group travelers, suggest group-appropriate activities.</p>
+<p>12. If accessibility needs are specified, ensure all activities are accessible.</code></pre></p>
+
+<hr>
+
+<h2>2. Itinerary Generation — User Prompt Template</h2>
+
+<pre><code>## Traveler Profile
+<li><strong>Travel Style</strong>: {{travelStyle}}</li>
+<li><strong>Interests</strong>: {{interests | join(", ")}}</li>
+<li><strong>Group Size</strong>: {{groupSize}} person(s)</li>
+<li><strong>Accessibility Needs</strong>: {{accessibilityNeeds | join(", ") | default("None")}}</li>
+
+<h2>Trip Details</h2>
+<li><strong>Destination</strong>: {{destination.city}}, {{destination.country}}</li>
+<li><strong>Dates</strong>: {{startDate}} to {{endDate}} ({{durationDays}} days)</li>
+<li><strong>Budget</strong>: {{budget.total | currency(budget.currency)}} total ({{budget.currency}})</li>
+
+<h2>Available Hyperlocal Experiences</h2>
+<p>These are verified local creator experiences available at the destination during the travel dates. INJECT them into the itinerary naturally as [LOCAL PICK] items. You MUST include at least one per day.</code></pre>json</p>
+<p>{{hyperlocalExperiences | json}}</p>
+<pre><code>## Local Events During Travel Dates
+<p>These events are happening at the destination during the trip. Weave relevant ones into the schedule.</code></pre>json</p>
+<p>{{localEvents | json}}</p>
+<pre><code>## Additional Constraints
+<p>{{#if dietaryRestrictions}}- Dietary restrictions: {{dietaryRestrictions | join(", ")}}{{/if}}</p>
+<p>{{#if preferredPace}}- Preferred pace: {{preferredPace}}{{/if}}</p>
+
+<p>Generate a complete {{durationDays}}-day itinerary following the output format specified in your instructions.</code></pre></p>
+
+<h3>Example — Rendered User Prompt</h3>
+
+<pre><code>## Traveler Profile
+<li><strong>Travel Style</strong>: COMFORT</li>
+<li><strong>Interests</strong>: Food, Culture, Nature</li>
+<li><strong>Group Size</strong>: 2 person(s)</li>
+<li><strong>Accessibility Needs</strong>: None</li>
+
+<h2>Trip Details</h2>
+<li><strong>Destination</strong>: Kyoto, Japan</li>
+<li><strong>Dates</strong>: 2026-04-15 to 2026-04-22 (7 days)</li>
+<li><strong>Budget</strong>: $3,500.00 total (USD)</li>
+
+<h2>Available Hyperlocal Experiences</h2>
+<p>[</p>
+<p>{</p>
+<p>"experienceId": "exp-123",</p>
+<p>"title": "Local Ramen Tasting with Chef Hiro",</p>
+<p>"category": "FOOD",</p>
+<p>"price": 2800,</p>
+<p>"currency": "JPY",</p>
+<p>"duration": 90,</p>
+<p>"location": "Nishiki Market area",</p>
+<p>"availability": ["2026-04-15", "2026-04-16", "2026-04-17", "2026-04-18", "2026-04-19", "2026-04-20"],</p>
+<p>"timeSlots": ["12:00", "19:00"],</p>
+<p>"rating": 4.8,</p>
+<p>"maxGroupSize": 8,</p>
+<p>"description": "Join Chef Hiro for a tour of his favorite hidden ramen shops..."</p>
+<p>},</p>
+<p>{</p>
+<p>"experienceId": "exp-456",</p>
+<p>"title": "Geisha District Night Walk with Fumiko",</p>
+<p>"category": "CULTURE",</p>
+<p>"price": 3500,</p>
+<p>"currency": "JPY",</p>
+<p>"duration": 120,</p>
+<p>"location": "Gion District",</p>
+<p>"availability": ["2026-04-15", "2026-04-17", "2026-04-19", "2026-04-21"],</p>
+<p>"timeSlots": ["19:00"],</p>
+<p>"rating": 4.9,</p>
+<p>"maxGroupSize": 6,</p>
+<p>"description": "Walk the atmospheric streets of Gion with local guide Fumiko..."</p>
+<p>}</p>
+<p>]</p>
+
+<h2>Local Events During Travel Dates</h2>
+<p>[</p>
+<p>{</p>
+<p>"title": "Cherry Blossom Night Illumination at Maruyama Park",</p>
+<p>"date": "2026-04-15 to 2026-04-20",</p>
+<p>"time": "18:00-21:30",</p>
+<p>"price": 0,</p>
+<p>"location": "Maruyama Park, Higashiyama",</p>
+<p>"tags": ["Nature", "Culture", "Free"]</p>
+<p>},</p>
+<p>{</p>
+<p>"title": "Underground Jazz at Bar Pigmalion",</p>
+<p>"date": "2026-04-16",</p>
+<p>"time": "21:00",</p>
+<p>"price": 1500,</p>
+<p>"location": "Kiyamachi-dori",</p>
+<p>"tags": ["Music", "Nightlife"]</p>
+<p>}</p>
+<p>]</p>
+
+<p>Generate a complete 7-day itinerary following the output format specified in your instructions.</code></pre></p>
+
+<hr>
+
+<h2>3. Dynamic Replanning — Replan Prompt</h2>
+
+<pre><code>## System Prompt (appended to base system prompt)
+
+<p>You are now replanning a specific day of an existing itinerary. A change in conditions requires adjusting the schedule while maintaining the overall quality and flow of the day.</p>
+
+<h2>Rules for Replanning</h2>
+<p>1. Keep as many of the original activities as possible — only change what's directly affected.</p>
+<p>2. If an outdoor activity is affected by weather, replace it with a comparable indoor activity.</p>
+<p>3. If a route is affected by traffic, recalculate transport but keep the activity if timing still works.</p>
+<p>4. If a venue is closed, swap it with a similar alternative nearby.</p>
+<p>5. Preserve the meal schedule (don't skip meals).</p>
+<p>6. Preserve any booked hyperlocal experiences unless they are directly affected.</p>
+<p>7. Maintain logical geographic flow (don't zigzag across the city).</p>
+
+<h2>Output Format</h2>
+<p>Return the COMPLETE updated day (same schema as original), NOT just the changed slots.</p>
+<p>Also include a "replanSummary" field:</p>
+
+<p>{</p>
+<p>"updatedDay": { ... same day schema ... },</p>
+<p>"replanSummary": {</p>
+<p>"changesCount": &lt;number of slots modified&gt;,</p>
+<p>"reason": "&lt;human-readable explanation&gt;",</p>
+<p>"highlights": ["&lt;what's new or different&gt;"]</p>
+<p>}</p>
+<p>}</code></pre></p>
+
+<h3>Replan User Prompt Template</h3>
+
+<pre><code>## Replan Trigger
+<li><strong>Reason</strong>: {{trigger.type}} — {{trigger.detail}}</li>
+<p>{{#if trigger.weather}}</p>
+<li><strong>Weather Update</strong>: {{trigger.weather.condition}}, {{trigger.weather.tempC}}°C, {{trigger.weather.precipitation}}% precipitation, wind {{trigger.weather.windKmh}} km/h</li>
+<p>{{/if}}</p>
+<p>{{#if trigger.traffic}}</p>
+<li><strong>Traffic Update</strong>: Route from "{{trigger.traffic.from}}" to "{{trigger.traffic.to}}" — current delay: {{trigger.traffic.delayMinutes}} minutes (normally {{trigger.traffic.normalMinutes}} minutes)</li>
+<p>{{/if}}</p>
+<p>{{#if trigger.venue}}</p>
+<li><strong>Venue Status</strong>: "{{trigger.venue.name}}" is {{trigger.venue.status}} — {{trigger.venue.reason}}</li>
+<p>{{/if}}</p>
+
+<h2>Current Day Plan (Day {{dayNumber}} — {{date}})</code></pre>json</h2>
+<p>{{currentDayPlan | json}}</p>
+<pre><code>## Affected Slots
+<p>The following slots are directly impacted:</p>
+<p>{{#each affectedSlots}}</p>
+<li>Slot "{{this.title}}" ({{this.startTime}} - {{this.endTime}}): {{this.impactReason}}</li>
+<p>{{/each}}</p>
+
+<h2>Available Alternative Activities</h2>
+<p>{{#if alternatives}}</code></pre>json</p>
+<p>{{alternatives | json}}</p>
+<pre><code>{{else}}
+<p>No pre-loaded alternatives. Please suggest appropriate replacements based on the destination.</p>
+<p>{{/if}}</p>
+
+<h2>Available Hyperlocal Experiences (not yet in itinerary)</code></pre>json</h2>
+<p>{{availableExperiences | json}}</p>
+<pre><code>Replan this day to account for the above changes. Respond with the complete updated day plus replan summary.</code></pre>
+
+<h3>Example — Weather Replan</h3>
+
+<pre><code>## Replan Trigger
+<li><strong>Reason</strong>: WEATHER — Heavy rain forecasted</li>
+<li><strong>Weather Update</strong>: Heavy Rain, 18°C, 95% precipitation, wind 35 km/h</li>
+
+<h2>Current Day Plan (Day 3 — 2026-04-17)</h2>
+<p>{</p>
+<p>"dayNumber": 3,</p>
+<p>"date": "2026-04-17",</p>
+<p>"theme": "Arashiyama Nature Day",</p>
+<p>"slots": [</p>
+<p>{ "startTime": "09:00", "endTime": "11:00", "activity": { "title": "Arashiyama Bamboo Grove Walk", "type": "ATTRACTION", ... } },</p>
+<p>{ "startTime": "11:30", "endTime": "12:30", "activity": { "title": "Togetsukyo Bridge Photo Stop", "type": "ATTRACTION", ... } },</p>
+<p>{ "startTime": "13:00", "endTime": "14:00", "activity": { "title": "Lunch at Yoshimura Soba", "type": "MEAL", ... } },</p>
+<p>{ "startTime": "14:30", "endTime": "16:30", "activity": { "title": "Monkey Park Iwatayama", "type": "ATTRACTION", ... } }</p>
+<p>]</p>
+<p>}</p>
+
+<h2>Affected Slots</h2>
+<li>Slot "Arashiyama Bamboo Grove Walk" (09:00 - 11:00): Outdoor activity unsafe in heavy rain</li>
+<li>Slot "Togetsukyo Bridge Photo Stop" (11:30 - 12:30): Outdoor, poor photo conditions</li>
+<li>Slot "Monkey Park Iwatayama" (14:30 - 16:30): Slippery mountain trail unsafe in rain</li>
+
+<h2>Available Hyperlocal Experiences (not yet in itinerary)</h2>
+<p>[</p>
+<p>{ "experienceId": "exp-789", "title": "Matcha Ceremony with Tea Master Yuki", "category": "CULTURE", "price": 4000, "duration": 60, "location": "Uji Tea House (indoor)", ... }</p>
+<p>]</p>
+
+<p>Replan this day to account for the above changes.</code></pre></p>
+
+<hr>
+
+<h2>API Call Configuration</h2>
+
+<pre><code>// ClaudeApiClient.java
+<p>@Service</p>
+<p>public class ClaudeApiClient {</p>
+
+<p>private static final String API_URL = "https://api.anthropic.com/v1/messages";</p>
+<p>private static final String MODEL = "claude-sonnet-4-20250514";</p>
+
+<p>public String callClaude(String systemPrompt, String userPrompt, int maxTokens) {</p>
+<p>HttpHeaders headers = new HttpHeaders();</p>
+<p>headers.set("x-api-key", apiKey);</p>
+<p>headers.set("anthropic-version", "2023-06-01");</p>
+<p>headers.setContentType(MediaType.APPLICATION_JSON);</p>
+
+<p>Map&lt;String, Object&gt; body = Map.of(</p>
+<p>"model", MODEL,</p>
+<p>"max_tokens", maxTokens,</p>
+<p>"system", systemPrompt,</p>
+<p>"messages", List.of(Map.of("role", "user", "content", userPrompt))</p>
+<p>);</p>
+
+<p>// Retry with exponential backoff (max 3 attempts)</p>
+<p>// Timeout: 60 seconds for generation, 30 seconds for replan</p>
+<p>// Token tracking for analytics</p>
+<p>}</p>
+<p>}</code></pre></p>
+
+<tr><td>Use Case</td><td>Max Tokens</td><td>Estimated Input Tokens</td><td>Estimated Cost/Call</td></tr>
+<tr><td>Itinerary Generation (7-day)</td><td>8,000</td><td>~3,000</td><td>~$0.08</td></tr>
+<tr><td>Day Replan</td><td>3,000</td><td>~2,000</td><td>~$0.03</td></tr>
+
+<footer style="margin-top:3rem;padding-top:1rem;border-top:1px solid #e5e7eb;color:#9ca3af;font-size:0.8rem;text-align:center;">LocalLens Architecture Documentation - Generated 2026-03-14</footer>
+</body></html>

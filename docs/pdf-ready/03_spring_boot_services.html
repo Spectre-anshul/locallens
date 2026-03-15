@@ -1,0 +1,832 @@
+<!DOCTYPE html>
+<html><head>
+<meta charset="UTF-8">
+<title>LocalLens - 03 spring boot services</title>
+<style>body { font-family: Segoe UI, -apple-system, sans-serif; max-width: 900px; margin: 2rem auto; padding: 0 2rem; color: #1a1a2e; line-height: 1.7; }
+h1 { color: #4f46e5; border-bottom: 3px solid #4f46e5; padding-bottom: 0.5rem; margin-top: 2rem; }
+h2 { color: #6366f1; border-bottom: 1px solid #e5e7eb; padding-bottom: 0.3rem; margin-top: 1.5rem; }
+h3 { color: #7c3aed; margin-top: 1.2rem; }
+code { background: #f3f4f6; padding: 2px 6px; border-radius: 4px; font-size: 0.9em; }
+pre { background: #1e1e2e; color: #cdd6f4; padding: 1rem; border-radius: 8px; overflow-x: auto; font-size: 0.85rem; }
+pre code { background: none; padding: 0; color: inherit; }
+table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
+th, td { border: 1px solid #d1d5db; padding: 0.5rem 0.75rem; text-align: left; font-size: 0.9rem; }
+th { background: #f3f4f6; font-weight: 600; }
+tr:nth-child(even) { background: #f9fafb; }
+blockquote { border-left: 4px solid #4f46e5; padding-left: 1rem; color: #6b7280; margin: 1rem 0; }
+hr { border: none; border-top: 2px solid #e5e7eb; margin: 2rem 0; }
+@media print { body { max-width: 100%; margin: 0; } pre { white-space: pre-wrap; } }</style>
+</head><body>
+<h1>LocalLens — Spring Boot Services</h1>
+
+<p>> <strong>Architecture</strong>: Modular monolith (v1) using Spring Boot 3.x on Java 17+. Each service is a separate package within a single deployable JAR. Services marked with <code>🔀</code> are candidates for extraction into separate microservices at scale.</p>
+
+<hr>
+
+<h2>Package Structure</h2>
+
+<pre><code>com.locallens
+<p>├── config/                     # Spring configuration classes</p>
+<p>│   ├── SecurityConfig.java</p>
+<p>│   ├── WebSocketConfig.java</p>
+<p>│   ├── MongoConfig.java</p>
+<p>│   ├── RedisConfig.java</p>
+<p>│   ├── StripeConfig.java</p>
+<p>│   └── CorsConfig.java</p>
+<p>├── auth/                       # AuthService</p>
+<p>│   ├── controller/</p>
+<p>│   ├── service/</p>
+<p>│   ├── dto/</p>
+<p>│   ├── repository/</p>
+<p>│   └── security/</p>
+<p>├── trip/                       # TripService</p>
+<p>├── itinerary/                  # ItineraryAIService</p>
+<p>├── replan/                     # ReplanningService 🔀</p>
+<p>├── marketplace/                # MarketplaceService</p>
+<p>├── payment/                    # PaymentService 🔀</p>
+<p>├── map/                        # MapService</p>
+<p>├── event/                      # EventAggregatorService</p>
+<p>├── notification/               # NotificationService 🔀</p>
+<p>├── analytics/                  # AnalyticsService</p>
+<p>└── common/                     # Shared DTOs, exceptions, utils</p>
+<p>├── exception/</p>
+<p>├── dto/</p>
+<p>└── util/</code></pre></p>
+
+<hr>
+
+<h2>1. AuthService</h2>
+
+<strong>Package</strong>: <code>com.locallens.auth</code>
+
+<h3>Controller — <code>AuthController.java</code></h3>
+
+<pre><code>@RestController
+<p>@RequestMapping("/api/auth")</p>
+<p>public class AuthController {</p>
+
+<p>// Local registration</p>
+<p>@PostMapping("/register")</p>
+<p>ResponseEntity&lt;AuthResponse&gt; register(@Valid @RequestBody RegisterRequest req);</p>
+
+<p>// Local login (email + password)</p>
+<p>@PostMapping("/login")</p>
+<p>ResponseEntity&lt;AuthResponse&gt; login(@Valid @RequestBody LoginRequest req);</p>
+
+<p>// OAuth2 callback handler (Google / Apple)</p>
+<p>@PostMapping("/oauth2/{provider}")</p>
+<p>ResponseEntity&lt;AuthResponse&gt; oauthLogin(</p>
+<p>@PathVariable String provider,</p>
+<p>@RequestBody OAuth2TokenRequest req</p>
+<p>);</p>
+
+<p>// Refresh JWT access token</p>
+<p>@PostMapping("/refresh")</p>
+<p>ResponseEntity&lt;AuthResponse&gt; refreshToken(@RequestBody RefreshTokenRequest req);</p>
+
+<p>// Logout (invalidate refresh token)</p>
+<p>@PostMapping("/logout")</p>
+<p>ResponseEntity&lt;Void&gt; logout(@AuthenticationPrincipal UserPrincipal user);</p>
+
+<p>// Get current user profile</p>
+<p>@GetMapping("/me")</p>
+<p>ResponseEntity&lt;UserProfileResponse&gt; getCurrentUser(@AuthenticationPrincipal UserPrincipal user);</p>
+
+<p>// Update user preferences</p>
+<p>@PatchMapping("/me/preferences")</p>
+<p>ResponseEntity&lt;UserProfileResponse&gt; updatePreferences(</p>
+<p>@AuthenticationPrincipal UserPrincipal user,</p>
+<p>@Valid @RequestBody UpdatePreferencesRequest req</p>
+<p>);</p>
+<p>}</code></pre></p>
+
+<h3>Service — <code>AuthService.java</code></h3>
+
+<pre><code>@Service
+<p>public class AuthService {</p>
+<p>UserDocument register(RegisterRequest req);</p>
+<p>AuthResponse authenticate(String email, String password);</p>
+<p>AuthResponse authenticateOAuth2(String provider, String idToken);</p>
+<p>AuthResponse refreshAccessToken(String refreshToken);</p>
+<p>void logout(String userId);</p>
+<p>UserDocument getUserById(String userId);</p>
+<p>UserDocument updatePreferences(String userId, UpdatePreferencesRequest req);</p>
+<p>}</code></pre></p>
+
+<h3>DTOs</h3>
+
+<pre><code>record RegisterRequest(String email, String password, String firstName, String lastName, String role) {}
+<p>record LoginRequest(String email, String password) {}</p>
+<p>record AuthResponse(String accessToken, String refreshToken, UserProfileResponse user) {}</p>
+<p>record OAuth2TokenRequest(String idToken) {}</p>
+<p>record RefreshTokenRequest(String refreshToken) {}</p>
+<p>record UpdatePreferencesRequest(List&lt;String&gt; interests, String travelStyle,</p>
+<p>List&lt;String&gt; accessibilityNeeds, Boolean darkMode) {}</p>
+<p>record UserProfileResponse(String id, String email, String firstName, String lastName,</p>
+<p>String role, String avatarUrl, UserPreferences preferences, CreatorProfileDTO creatorProfile) {}</code></pre></p>
+
+<h3>Security</h3>
+
+<li><code>JwtTokenProvider.java</code> — generate/validate JWT, 15min access / 7d refresh</li>
+<li><code>JwtAuthenticationFilter.java</code> — extracts JWT from <code>Authorization: Bearer</code> header</li>
+<li><code>OAuth2Service.java</code> — verifies Google/Apple ID tokens via provider APIs</li>
+<li><code>UserPrincipal.java</code> — implements <code>UserDetails</code></li>
+
+<hr>
+
+<h2>2. TripService</h2>
+
+<strong>Package</strong>: <code>com.locallens.trip</code>
+
+<h3>Controller — <code>TripController.java</code></h3>
+
+<pre><code>@RestController
+<p>@RequestMapping("/api/trips")</p>
+<p>@PreAuthorize("hasRole('TRAVELER')")</p>
+<p>public class TripController {</p>
+
+<p>@PostMapping</p>
+<p>ResponseEntity&lt;TripResponse&gt; createTrip(@Valid @RequestBody CreateTripRequest req,</p>
+<p>@AuthenticationPrincipal UserPrincipal user);</p>
+
+<p>@GetMapping</p>
+<p>ResponseEntity&lt;List&lt;TripSummaryResponse&gt;&gt; getUserTrips(@AuthenticationPrincipal UserPrincipal user);</p>
+
+<p>@GetMapping("/{tripId}")</p>
+<p>ResponseEntity&lt;TripDetailResponse&gt; getTripById(@PathVariable String tripId);</p>
+
+<p>@PatchMapping("/{tripId}")</p>
+<p>ResponseEntity&lt;TripResponse&gt; updateTrip(@PathVariable String tripId,</p>
+<p>@Valid @RequestBody UpdateTripRequest req);</p>
+
+<p>@DeleteMapping("/{tripId}")</p>
+<p>ResponseEntity&lt;Void&gt; deleteTrip(@PathVariable String tripId);</p>
+
+<p>// Flight management</p>
+<p>@PostMapping("/{tripId}/flights")</p>
+<p>ResponseEntity&lt;TripResponse&gt; addFlight(@PathVariable String tripId,</p>
+<p>@Valid @RequestBody FlightRequest req);</p>
+
+<p>@DeleteMapping("/{tripId}/flights/{flightIdx}")</p>
+<p>ResponseEntity&lt;TripResponse&gt; removeFlight(@PathVariable String tripId, @PathVariable int flightIdx);</p>
+
+<p>// Accommodation management</p>
+<p>@PostMapping("/{tripId}/accommodation")</p>
+<p>ResponseEntity&lt;TripResponse&gt; addAccommodation(@PathVariable String tripId,</p>
+<p>@Valid @RequestBody AccommodationRequest req);</p>
+
+<p>// Document upload (GridFS)</p>
+<p>@PostMapping("/{tripId}/documents")</p>
+<p>ResponseEntity&lt;TripResponse&gt; uploadDocument(@PathVariable String tripId,</p>
+<p>@RequestParam("file") MultipartFile file,</p>
+<p>@RequestParam("type") String documentType);</p>
+
+<p>@GetMapping("/{tripId}/documents/{docId}")</p>
+<p>ResponseEntity&lt;Resource&gt; downloadDocument(@PathVariable String tripId, @PathVariable String docId);</p>
+
+<p>// Budget tracking</p>
+<p>@GetMapping("/{tripId}/budget")</p>
+<p>ResponseEntity&lt;BudgetBreakdownResponse&gt; getBudgetBreakdown(@PathVariable String tripId);</p>
+
+<p>@PostMapping("/{tripId}/budget/expense")</p>
+<p>ResponseEntity&lt;BudgetBreakdownResponse&gt; logExpense(@PathVariable String tripId,</p>
+<p>@Valid @RequestBody ExpenseRequest req);</p>
+<p>}</code></pre></p>
+
+<h3>Service — <code>TripService.java</code></h3>
+
+<pre><code>@Service
+<p>public class TripService {</p>
+<p>TripDocument createTrip(String userId, CreateTripRequest req);</p>
+<p>List&lt;TripDocument&gt; getUserTrips(String userId);</p>
+<p>TripDocument getTripById(String tripId);</p>
+<p>TripDocument updateTrip(String tripId, UpdateTripRequest req);</p>
+<p>void deleteTrip(String tripId);</p>
+<p>TripDocument addFlight(String tripId, FlightRequest req);</p>
+<p>TripDocument addAccommodation(String tripId, AccommodationRequest req);</p>
+<p>String uploadDocument(String tripId, MultipartFile file, String type);</p>
+<p>GridFsResource downloadDocument(String docId);</p>
+<p>BudgetBreakdown computeBudgetBreakdown(String tripId);</p>
+<p>void logExpense(String tripId, ExpenseRequest req);</p>
+<p>List&lt;TripDocument&gt; getActiveTripsForDestination(String city, LocalDate date);</p>
+<p>}</code></pre></p>
+
+<strong>MongoDB Repos</strong>: <code>TripRepository</code>, GridFS via <code>GridFsTemplate</code>
+<strong>External APIs</strong>: None directly
+<strong>Scheduled Jobs</strong>: None
+
+<hr>
+
+<h2>3. ItineraryAIService 🔀</h2>
+
+<strong>Package</strong>: <code>com.locallens.itinerary</code>
+
+<h3>Controller — <code>ItineraryController.java</code></h3>
+
+<pre><code>@RestController
+<p>@RequestMapping("/api/itinerary")</p>
+<p>public class ItineraryController {</p>
+
+<p>@PostMapping("/generate")</p>
+<p>ResponseEntity&lt;ItineraryResponse&gt; generateItinerary(</p>
+<p>@Valid @RequestBody GenerateItineraryRequest req,</p>
+<p>@AuthenticationPrincipal UserPrincipal user);</p>
+
+<p>@PostMapping("/{itineraryDayId}/replan")</p>
+<p>ResponseEntity&lt;ReplanResponse&gt; requestReplan(</p>
+<p>@PathVariable String itineraryDayId,</p>
+<p>@Valid @RequestBody ManualReplanRequest req);</p>
+
+<p>@GetMapping("/{tripId}/days")</p>
+<p>ResponseEntity&lt;List&lt;ItineraryDayResponse&gt;&gt; getItineraryDays(@PathVariable String tripId);</p>
+
+<p>@GetMapping("/{tripId}/days/{dayNumber}")</p>
+<p>ResponseEntity&lt;ItineraryDayResponse&gt; getItineraryDay(</p>
+<p>@PathVariable String tripId, @PathVariable int dayNumber);</p>
+
+<p>@PatchMapping("/{tripId}/days/{dayNumber}/slots/reorder")</p>
+<p>ResponseEntity&lt;ItineraryDayResponse&gt; reorderSlots(</p>
+<p>@PathVariable String tripId, @PathVariable int dayNumber,</p>
+<p>@Valid @RequestBody ReorderSlotsRequest req);</p>
+
+<p>@GetMapping("/{tripId}/status")</p>
+<p>ResponseEntity&lt;ItineraryStatusResponse&gt; getItineraryStatus(@PathVariable String tripId);</p>
+<p>}</code></pre></p>
+
+<h3>Service — <code>ItineraryAIService.java</code></h3>
+
+<pre><code>@Service
+<p>public class ItineraryAIService {</p>
+
+<p>// Assembles prompt with user profile, hyperlocal experiences, events, and constraints</p>
+<p>// Calls Claude API, parses structured JSON response, stores in MongoDB</p>
+<p>ItineraryResult generateItinerary(String tripId, GenerateItineraryRequest req);</p>
+
+<p>// Builds replan prompt with current plan + context (weather/traffic/closure)</p>
+<p>// Returns updated day plan + diff</p>
+<p>ReplanResult replanDay(String tripId, int dayNumber, ReplanContext context);</p>
+
+<p>// Internal: constructs the Claude system prompt</p>
+<p>String buildSystemPrompt(TripDocument trip, List&lt;ExperienceDocument&gt; experiences,</p>
+<p>List&lt;EventDocument&gt; events);</p>
+
+<p>// Internal: constructs the user prompt for itinerary generation</p>
+<p>String buildGenerationPrompt(GenerateItineraryRequest req);</p>
+
+<p>// Internal: constructs the user prompt for replanning</p>
+<p>String buildReplanPrompt(ItineraryDayDocument currentDay, ReplanContext context);</p>
+
+<p>// Internal: parses Claude's JSON response into ItineraryDay documents</p>
+<p>List&lt;ItineraryDayDocument&gt; parseItineraryResponse(String claudeResponse, String tripId);</p>
+
+<p>// Internal: calls Claude API with retry + error handling</p>
+<p>String callClaudeAPI(String systemPrompt, String userPrompt, int maxTokens);</p>
+<p>}</code></pre></p>
+
+<h3>DTOs</h3>
+
+<pre><code>record GenerateItineraryRequest(String tripId) {}
+<p>record ManualReplanRequest(String reason, List&lt;String&gt; slotIds) {}</p>
+<p>record ReplanContext(String triggeredBy, String reasonCode, String reasonDetail,</p>
+<p>WeatherData weather, TrafficData traffic, VenueStatus venueStatus) {}</p>
+<p>record ItineraryResult(String tripId, List&lt;ItineraryDayDocument&gt; days, int totalTokensUsed) {}</p>
+<p>record ReplanResult(String tripId, int dayNumber, ItineraryDayDocument updatedDay,</p>
+<p>DiffPayload diff) {}</p>
+<p>record DiffPayload(List&lt;SlotDiff&gt; removed, List&lt;SlotDiff&gt; added, List&lt;FieldDiff&gt; modified) {}</p>
+<p>record ReorderSlotsRequest(List&lt;String&gt; slotIdsInOrder) {}</code></pre></p>
+
+<strong>MongoDB Repos</strong>: <code>ItineraryDayRepository</code>
+<strong>External APIs</strong>: Claude API (Anthropic)
+<strong>Dependencies</strong>: <code>MarketplaceService</code> (for experience matching), <code>EventAggregatorService</code> (for events)
+
+<hr>
+
+<h2>4. ReplanningService 🔀</h2>
+
+<strong>Package</strong>: <code>com.locallens.replan</code>
+
+<h3>Service — <code>ReplanningService.java</code></h3>
+
+<pre><code>@Service
+<p>public class ReplanningService {</p>
+
+<p>// Master replan orchestrator</p>
+<p>void triggerReplan(String tripId, int dayNumber, ReplanTrigger trigger);</p>
+
+<p>// Checks weather for all active trips, triggers replans if needed</p>
+<p>void checkWeatherAndReplan();</p>
+
+<p>// Checks traffic for all active trips with upcoming activities</p>
+<p>void checkTrafficAndReplan();</p>
+
+<p>// Checks venue status for upcoming activities</p>
+<p>void checkVenueStatusAndReplan();</p>
+
+<p>// Computes diff between old and new itinerary day</p>
+<p>DiffPayload computeDiff(ItineraryDayDocument oldDay, ItineraryDayDocument newDay);</p>
+
+<p>// Logs replan decision to MongoDB</p>
+<p>void logReplanEvent(String tripId, int dayNumber, ReplanTrigger trigger,</p>
+<p>DiffPayload diff, int promptTokens, int responseTokens, long processingTimeMs);</p>
+
+<p>// User accepts or rejects a replan</p>
+<p>void handleReplanDecision(String tripId, String replanLogId, boolean accepted);</p>
+<p>}</code></pre></p>
+
+<h3>Scheduled Jobs</h3>
+
+<pre><code>@Component
+<p>public class ReplanningScheduler {</p>
+
+<p>@Scheduled(fixedRate = 1800000) // every 30 minutes</p>
+<p>void weatherCheckJob();</p>
+
+<p>@Scheduled(fixedRate = 900000)  // every 15 minutes</p>
+<p>void trafficCheckJob();</p>
+
+<p>@Scheduled(fixedRate = 3600000) // every 60 minutes</p>
+<p>void venueStatusCheckJob();</p>
+<p>}</code></pre></p>
+
+<h3>External API Clients</h3>
+
+<pre><code>@Service
+<p>public class WeatherClient {</p>
+<p>WeatherData getCurrentWeather(double lat, double lng);</p>
+<p>WeatherForecast getForecast(double lat, double lng, int days);</p>
+<p>boolean isAdverseWeather(WeatherData data); // rain &gt; 70%, wind &gt; 60km/h, storm alerts</p>
+<p>}</p>
+
+<p>@Service</p>
+<p>public class TrafficClient {</p>
+<p>TrafficData getTrafficFlow(double fromLat, double fromLng, double toLat, double toLng);</p>
+<p>boolean isSevereCongestion(TrafficData data); // freeFlowSpeed/currentSpeed ratio &gt; 2.0</p>
+<p>RouteData getAlternativeRoute(double fromLat, double fromLng, double toLat, double toLng);</p>
+<p>}</p>
+
+<p>@Service</p>
+<p>public class VenueStatusClient {</p>
+<p>VenueStatus checkVenueStatus(String placeId);</p>
+<p>boolean isClosed(VenueStatus status);</p>
+<p>}</code></pre></p>
+
+<strong>MongoDB Repos</strong>: <code>ReplanLogRepository</code>, <code>ItineraryDayRepository</code>, <code>TripRepository</code>
+<strong>External APIs</strong>: OpenWeatherMap, TomTom Traffic, Google Places
+<strong>WebSocket</strong>: Pushes <code>REPLAN_TRIGGERED</code> events via <code>SimpMessagingTemplate</code>
+
+<hr>
+
+<h2>5. MarketplaceService</h2>
+
+<strong>Package</strong>: <code>com.locallens.marketplace</code>
+
+<h3>Controllers</h3>
+
+<pre><code>// --- Traveler-facing ---
+<p>@RestController</p>
+<p>@RequestMapping("/api/experiences")</p>
+<p>public class ExperienceController {</p>
+
+<p>@GetMapping</p>
+<p>ResponseEntity&lt;Page&lt;ExperienceResponse&gt;&gt; searchExperiences(</p>
+<p>@RequestParam String city,</p>
+<p>@RequestParam(required = false) String category,</p>
+<p>@RequestParam(required = false) Double minPrice,</p>
+<p>@RequestParam(required = false) Double maxPrice,</p>
+<p>@RequestParam(required = false) Double lat,</p>
+<p>@RequestParam(required = false) Double lng,</p>
+<p>@RequestParam(required = false) Double radiusKm,</p>
+<p>@RequestParam(required = false) String sortBy, // rating, price, distance</p>
+<p>Pageable pageable);</p>
+
+<p>@GetMapping("/{id}")</p>
+<p>ResponseEntity&lt;ExperienceDetailResponse&gt; getExperience(@PathVariable String id);</p>
+
+<p>@GetMapping("/{id}/reviews")</p>
+<p>ResponseEntity&lt;Page&lt;ReviewResponse&gt;&gt; getExperienceReviews(</p>
+<p>@PathVariable String id, Pageable pageable);</p>
+
+<p>@PostMapping("/{id}/book")</p>
+<p>ResponseEntity&lt;BookingResponse&gt; bookExperience(@PathVariable String id,</p>
+<p>@Valid @RequestBody BookingRequest req,</p>
+<p>@AuthenticationPrincipal UserPrincipal user);</p>
+
+<p>@PostMapping("/bookings/{bookingId}/review")</p>
+<p>ResponseEntity&lt;ReviewResponse&gt; leaveReview(@PathVariable String bookingId,</p>
+<p>@Valid @RequestBody ReviewRequest req,</p>
+<p>@AuthenticationPrincipal UserPrincipal user);</p>
+<p>}</p>
+
+<p>// --- Creator-facing ---</p>
+<p>@RestController</p>
+<p>@RequestMapping("/api/creator")</p>
+<p>@PreAuthorize("hasRole('CREATOR')")</p>
+<p>public class CreatorController {</p>
+
+<p>@PostMapping("/experiences")</p>
+<p>ResponseEntity&lt;ExperienceResponse&gt; createExperience(</p>
+<p>@Valid @RequestBody CreateExperienceRequest req,</p>
+<p>@AuthenticationPrincipal UserPrincipal user);</p>
+
+<p>@PatchMapping("/experiences/{id}")</p>
+<p>ResponseEntity&lt;ExperienceResponse&gt; updateExperience(@PathVariable String id,</p>
+<p>@Valid @RequestBody UpdateExperienceRequest req);</p>
+
+<p>@DeleteMapping("/experiences/{id}")</p>
+<p>ResponseEntity&lt;Void&gt; archiveExperience(@PathVariable String id);</p>
+
+<p>@GetMapping("/experiences")</p>
+<p>ResponseEntity&lt;List&lt;ExperienceResponse&gt;&gt; getMyExperiences(</p>
+<p>@AuthenticationPrincipal UserPrincipal user);</p>
+
+<p>@GetMapping("/bookings")</p>
+<p>ResponseEntity&lt;Page&lt;BookingResponse&gt;&gt; getMyBookings(</p>
+<p>@AuthenticationPrincipal UserPrincipal user,</p>
+<p>@RequestParam(required = false) String status,</p>
+<p>Pageable pageable);</p>
+
+<p>@PatchMapping("/bookings/{bookingId}/accept")</p>
+<p>ResponseEntity&lt;BookingResponse&gt; acceptBooking(@PathVariable String bookingId);</p>
+
+<p>@PatchMapping("/bookings/{bookingId}/decline")</p>
+<p>ResponseEntity&lt;BookingResponse&gt; declineBooking(@PathVariable String bookingId,</p>
+<p>@RequestBody DeclineReasonRequest req);</p>
+
+<p>@GetMapping("/dashboard")</p>
+<p>ResponseEntity&lt;CreatorDashboardResponse&gt; getDashboard(</p>
+<p>@AuthenticationPrincipal UserPrincipal user);</p>
+
+<p>@GetMapping("/earnings")</p>
+<p>ResponseEntity&lt;EarningsResponse&gt; getEarnings(</p>
+<p>@AuthenticationPrincipal UserPrincipal user,</p>
+<p>@RequestParam String period); // WEEK, MONTH, YEAR, ALL</p>
+
+<p>@GetMapping("/analytics/ai-injections")</p>
+<p>ResponseEntity&lt;List&lt;AIInjectionStat&gt;&gt; getAIInjectionStats(</p>
+<p>@AuthenticationPrincipal UserPrincipal user);</p>
+<p>}</code></pre></p>
+
+<h3>Service — <code>ExperienceMatchingService.java</code></h3>
+
+<pre><code>@Service
+<p>public class ExperienceMatchingService {</p>
+
+<p>/**</p>
+<p>* Core matching algorithm for AI itinerary injection.</p>
+<p>* Scores each experience on weighted criteria and returns ranked list.</p>
+<p>*/</p>
+<p>List&lt;RankedExperience&gt; match(UserPreferences travelerProfile,</p>
+<p>String destinationCity,</p>
+<p>LocalDate startDate,</p>
+<p>LocalDate endDate,</p>
+<p>int groupSize) {</p>
+<p>// Scoring weights:</p>
+<p>// 1. Interest tag overlap        → weight 0.25</p>
+<p>// 2. Budget fit                  → weight 0.20</p>
+<p>// 3. Travel style compatibility  → weight 0.15</p>
+<p>// 4. Availability on dates       → weight 0.15 (binary: available or not)</p>
+<p>// 5. Rating × log(bookingCount)  → weight 0.15</p>
+<p>// 6. Hyperlocal bonus            → weight 0.10 (1.5x multiplier if hyperlocal=true)</p>
+<p>}</p>
+
+<p>double scoreInterestOverlap(List&lt;String&gt; travelerInterests, List&lt;String&gt; experienceTags);</p>
+<p>double scoreBudgetFit(long budgetCents, long experiencePriceCents, String travelStyle);</p>
+<p>double scoreStyleCompatibility(String travelStyle, String experienceCategory, long price);</p>
+<p>boolean checkAvailability(List&lt;Availability&gt; slots, LocalDate start, LocalDate end);</p>
+<p>double scorePopularity(double rating, int bookingCount);</p>
+<p>}</code></pre></p>
+
+<strong>MongoDB Repos</strong>: <code>ExperienceRepository</code>, <code>BookingRepository</code>, <code>ReviewRepository</code>
+<strong>External APIs</strong>: None directly
+<strong>Dependencies</strong>: <code>PaymentService</code>, <code>NotificationService</code>
+
+<hr>
+
+<h2>6. PaymentService 🔀</h2>
+
+<strong>Package</strong>: <code>com.locallens.payment</code>
+
+<h3>Controller — <code>PaymentController.java</code></h3>
+
+<pre><code>@RestController
+<p>@RequestMapping("/api/payments")</p>
+<p>public class PaymentController {</p>
+
+<p>@PostMapping("/create-intent")</p>
+<p>ResponseEntity&lt;PaymentIntentResponse&gt; createPaymentIntent(</p>
+<p>@Valid @RequestBody CreatePaymentIntentRequest req,</p>
+<p>@AuthenticationPrincipal UserPrincipal user);</p>
+
+<p>@PostMapping("/webhook")</p>
+<p>ResponseEntity&lt;Void&gt; handleStripeWebhook(</p>
+<p>@RequestBody String payload,</p>
+<p>@RequestHeader("Stripe-Signature") String sigHeader);</p>
+
+<p>@GetMapping("/creator/payouts")</p>
+<p>@PreAuthorize("hasRole('CREATOR')")</p>
+<p>ResponseEntity&lt;List&lt;PayoutResponse&gt;&gt; getPayouts(@AuthenticationPrincipal UserPrincipal user);</p>
+
+<p>@PostMapping("/creator/onboard")</p>
+<p>@PreAuthorize("hasRole('CREATOR')")</p>
+<p>ResponseEntity&lt;StripeOnboardingResponse&gt; initiateStripeOnboarding(</p>
+<p>@AuthenticationPrincipal UserPrincipal user);</p>
+<p>}</code></pre></p>
+
+<h3>Service — <code>PaymentService.java</code></h3>
+
+<pre><code>@Service
+<p>public class PaymentService {</p>
+<p>PaymentIntent createPaymentIntent(String travelerId, String experienceId,</p>
+<p>int groupSize, LocalDate date);</p>
+<p>void handlePaymentSuccess(String paymentIntentId);</p>
+<p>void handlePaymentFailure(String paymentIntentId);</p>
+<p>void processCreatorPayout(String bookingId);</p>
+<p>void processRefund(String bookingId, long refundAmountCents);</p>
+<p>String createStripeConnectAccount(String creatorId, String email);</p>
+<p>String getStripeOnboardingUrl(String stripeAccountId);</p>
+<p>long calculatePlatformFee(long amountCents, double commissionRate);</p>
+<p>}</code></pre></p>
+
+<strong>MongoDB Repos</strong>: <code>BookingRepository</code>
+<strong>External APIs</strong>: Stripe (Payments + Connect)
+
+<hr>
+
+<h2>7. MapService</h2>
+
+<strong>Package</strong>: <code>com.locallens.map</code>
+
+<h3>Controller — <code>MapController.java</code></h3>
+
+<pre><code>@RestController
+<p>@RequestMapping("/api/map")</p>
+<p>public class MapController {</p>
+
+<p>@GetMapping("/heatmap")</p>
+<p>ResponseEntity&lt;HeatmapResponse&gt; getHeatmap(</p>
+<p>@RequestParam double lat,</p>
+<p>@RequestParam double lng,</p>
+<p>@RequestParam double radiusKm,</p>
+<p>@RequestParam(required = false, defaultValue = "-1") int hour,</p>
+<p>@RequestParam(required = false) String dayOfWeek);</p>
+
+<p>@GetMapping("/pois")</p>
+<p>ResponseEntity&lt;List&lt;POIResponse&gt;&gt; getPOIs(</p>
+<p>@RequestParam double lat,</p>
+<p>@RequestParam double lng,</p>
+<p>@RequestParam double radiusKm,</p>
+<p>@RequestParam(required = false) String category);</p>
+
+<p>@GetMapping("/pois/{id}")</p>
+<p>ResponseEntity&lt;POIDetailResponse&gt; getPOIDetail(@PathVariable String id);</p>
+
+<p>@GetMapping("/route")</p>
+<p>ResponseEntity&lt;RouteResponse&gt; getRouteGeoJSON(</p>
+<p>@RequestParam String tripId,</p>
+<p>@RequestParam int dayNumber);</p>
+
+<p>@GetMapping("/traffic")</p>
+<p>ResponseEntity&lt;TrafficOverlayResponse&gt; getTrafficOverlay(</p>
+<p>@RequestParam double lat,</p>
+<p>@RequestParam double lng,</p>
+<p>@RequestParam double radiusKm);</p>
+
+<p>@PostMapping("/checkin")</p>
+<p>ResponseEntity&lt;Void&gt; recordCheckIn(</p>
+<p>@Valid @RequestBody CheckInRequest req,</p>
+<p>@AuthenticationPrincipal UserPrincipal user);</p>
+<p>}</code></pre></p>
+
+<h3>Service — <code>FootfallService.java</code></h3>
+
+<pre><code>@Service
+<p>public class FootfallService {</p>
+
+<p>// Aggregates anonymous visit logs + creator check-in data</p>
+<p>void recordVisit(double lat, double lng, String userId, Instant timestamp);</p>
+
+<p>// Precomputes heatmap grid for a city, stores as GeoJSON in MongoDB</p>
+<p>void computeHeatmapGrid(String city);</p>
+
+<p>// Retrieves cached heatmap data for a region</p>
+<p>List&lt;FootfallGridDocument&gt; getHeatmapData(double lat, double lng,</p>
+<p>double radiusKm, int hour);</p>
+
+<p>// Determines crowd level from footfall score</p>
+<p>CrowdLevel classifyCrowdLevel(double footfallScore);</p>
+
+<p>// Generates best-time-to-visit recommendation</p>
+<p>String recommendBestTime(String poiId);</p>
+<p>}</code></pre></p>
+
+<h3>Scheduled Jobs</h3>
+
+<pre><code>@Scheduled(fixedRate = 1800000) // every 30 minutes
+<p>void recomputeHeatmaps();</code></pre></p>
+
+<strong>MongoDB Repos</strong>: <code>FootfallGridRepository</code>, <code>ExperienceRepository</code> (for POIs)
+<strong>External APIs</strong>: TomTom Traffic (for traffic overlay), Mapbox/MapLibre tile URLs
+<strong>Cache</strong>: Redis for heatmap grid data (30min TTL)
+
+<hr>
+
+<h2>8. EventAggregatorService</h2>
+
+<strong>Package</strong>: <code>com.locallens.event</code>
+
+<h3>Controller — <code>EventController.java</code></h3>
+
+<pre><code>@RestController
+<p>@RequestMapping("/api/events")</p>
+<p>public class EventController {</p>
+
+<p>@GetMapping</p>
+<p>ResponseEntity&lt;Page&lt;EventResponse&gt;&gt; getEvents(</p>
+<p>@RequestParam String city,</p>
+<p>@RequestParam @DateTimeFormat(iso = ISO.DATE) LocalDate startDate,</p>
+<p>@RequestParam @DateTimeFormat(iso = ISO.DATE) LocalDate endDate,</p>
+<p>@RequestParam(required = false) List&lt;String&gt; tags,</p>
+<p>@RequestParam(required = false) Boolean familyFriendly,</p>
+<p>Pageable pageable);</p>
+
+<p>@GetMapping("/tonight")</p>
+<p>ResponseEntity&lt;List&lt;EventResponse&gt;&gt; getTonightEvents(@RequestParam String city);</p>
+
+<p>@PostMapping</p>
+<p>@PreAuthorize("hasRole('CREATOR')")</p>
+<p>ResponseEntity&lt;EventResponse&gt; submitCreatorEvent(</p>
+<p>@Valid @RequestBody CreateEventRequest req,</p>
+<p>@AuthenticationPrincipal UserPrincipal user);</p>
+<p>}</code></pre></p>
+
+<h3>Service — <code>EventAggregatorService.java</code></h3>
+
+<pre><code>@Service
+<p>public class EventAggregatorService {</p>
+
+<p>// Nightly batch: pull events from all external sources for tracked cities</p>
+<p>void aggregateAllEvents();</p>
+
+<p>// Pull Eventbrite events for a city + date range</p>
+<p>List&lt;EventDocument&gt; fetchEventbriteEvents(String city, LocalDate start, LocalDate end);</p>
+
+<p>// Deduplicate events across sources (by title + location + time similarity)</p>
+<p>List&lt;EventDocument&gt; deduplicateEvents(List&lt;EventDocument&gt; events);</p>
+
+<p>// Query events for AI prompt injection</p>
+<p>List&lt;EventDocument&gt; getEventsForItinerary(String city, LocalDate start, LocalDate end);</p>
+
+<p>// Creator submits a manual event</p>
+<p>EventDocument createCreatorEvent(String creatorId, CreateEventRequest req);</p>
+<p>}</code></pre></p>
+
+<h3>Scheduled Jobs</h3>
+
+<pre><code>@Scheduled(cron = "0 0 2 <em> </em> *") // 2 AM daily
+<p>void nightlyEventAggregation();</p>
+
+<p>@Scheduled(fixedRate = 3600000) // hourly during daytime</p>
+<p>void realTimeEventRefresh();</code></pre></p>
+
+<strong>MongoDB Repos</strong>: <code>EventRepository</code>
+<strong>External APIs</strong>: Eventbrite API
+<strong>Cache</strong>: Redis for tonight's events (15min TTL)
+
+<hr>
+
+<h2>9. NotificationService 🔀</h2>
+
+<strong>Package</strong>: <code>com.locallens.notification</code>
+
+<h3>Controller — <code>NotificationController.java</code></h3>
+
+<pre><code>@RestController
+<p>@RequestMapping("/api/notifications")</p>
+<p>public class NotificationController {</p>
+
+<p>@GetMapping</p>
+<p>ResponseEntity&lt;Page&lt;NotificationResponse&gt;&gt; getNotifications(</p>
+<p>@AuthenticationPrincipal UserPrincipal user,</p>
+<p>@RequestParam(required = false, defaultValue = "false") boolean unreadOnly,</p>
+<p>Pageable pageable);</p>
+
+<p>@PatchMapping("/{id}/read")</p>
+<p>ResponseEntity&lt;Void&gt; markAsRead(@PathVariable String id);</p>
+
+<p>@PatchMapping("/read-all")</p>
+<p>ResponseEntity&lt;Void&gt; markAllAsRead(@AuthenticationPrincipal UserPrincipal user);</p>
+
+<p>@GetMapping("/unread-count")</p>
+<p>ResponseEntity&lt;UnreadCountResponse&gt; getUnreadCount(@AuthenticationPrincipal UserPrincipal user);</p>
+<p>}</code></pre></p>
+
+<h3>Service — <code>NotificationService.java</code></h3>
+
+<pre><code>@Service
+<p>public class NotificationService {</p>
+
+<p>// Unified dispatch: creates notification + sends via configured channels</p>
+<p>void send(String userId, NotificationType type, String title, String body,</p>
+<p>Map&lt;String, String&gt; data, Set&lt;NotificationChannel&gt; channels);</p>
+
+<p>// WebSocket push</p>
+<p>void pushWebSocket(String userId, NotificationPayload payload);</p>
+
+<p>// Email via SendGrid</p>
+<p>void sendEmail(String toEmail, String templateId, Map&lt;String, Object&gt; templateData);</p>
+
+<p>// Push notification via Firebase Cloud Messaging</p>
+<p>void sendPushNotification(String userId, String title, String body, Map&lt;String, String&gt; data);</p>
+
+<p>// Convenience methods for common notification types</p>
+<p>void notifyBookingConfirmed(BookingDocument booking);</p>
+<p>void notifyBookingDeclined(BookingDocument booking, String reason);</p>
+<p>void notifyReplanTriggered(String tripId, int dayNumber, DiffPayload diff);</p>
+<p>void notifyReviewReceived(ReviewDocument review);</p>
+<p>void notifyPayoutProcessed(String creatorId, long amountCents);</p>
+<p>void notifyNewMessage(MessageDocument message);</p>
+<p>}</code></pre></p>
+
+<strong>MongoDB Repos</strong>: <code>NotificationRepository</code>
+<strong>External APIs</strong>: SendGrid, Firebase Cloud Messaging
+<strong>WebSocket</strong>: <code>SimpMessagingTemplate</code> for real-time push
+
+<hr>
+
+<h2>10. AnalyticsService</h2>
+
+<strong>Package</strong>: <code>com.locallens.analytics</code>
+
+<h3>Controller — <code>AnalyticsController.java</code></h3>
+
+<pre><code>@RestController
+<p>@RequestMapping("/api/analytics")</p>
+<p>public class AnalyticsController {</p>
+
+<p>@GetMapping("/creator/{creatorId}/visibility")</p>
+<p>@PreAuthorize("hasRole('CREATOR') or hasRole('ADMIN')")</p>
+<p>ResponseEntity&lt;CreatorVisibilityResponse&gt; getCreatorVisibility(@PathVariable String creatorId);</p>
+
+<p>@GetMapping("/trip/{tripId}/stats")</p>
+<p>ResponseEntity&lt;TripAnalyticsResponse&gt; getTripAnalytics(@PathVariable String tripId);</p>
+
+<p>@GetMapping("/admin/platform")</p>
+<p>@PreAuthorize("hasRole('ADMIN')")</p>
+<p>ResponseEntity&lt;PlatformAnalyticsResponse&gt; getPlatformAnalytics(</p>
+<p>@RequestParam String period);</p>
+<p>}</code></pre></p>
+
+<h3>Service — <code>AnalyticsService.java</code></h3>
+
+<pre><code>@Service
+<p>public class AnalyticsService {</p>
+
+<p>// How many AI itineraries included this creator's experiences</p>
+<p>CreatorVisibilityStats getCreatorAIInjectionStats(String creatorId, String period);</p>
+
+<p>// Footfall logging for heatmap data</p>
+<p>void logFootfall(String userId, double lat, double lng);</p>
+
+<p>// Trip-level analytics: budget adherence, activities completed, replans</p>
+<p>TripAnalytics computeTripAnalytics(String tripId);</p>
+
+<p>// Platform-wide: total bookings, GMV, active creators, popular destinations</p>
+<p>PlatformAnalytics computePlatformAnalytics(String period);</p>
+<p>}</code></pre></p>
+
+<strong>MongoDB Repos</strong>: <code>ReplanLogRepository</code>, <code>BookingRepository</code>, <code>FootfallGridRepository</code>
+<strong>External APIs</strong>: None
+<strong>Scheduled Jobs</strong>: Nightly aggregation of analytics snapshots
+
+<hr>
+
+<h2>Messaging (Cross-cutting)</h2>
+
+<h3>Controller — <code>MessageController.java</code></h3>
+
+<pre><code>@RestController
+<p>@RequestMapping("/api/messages")</p>
+<p>public class MessageController {</p>
+
+<p>@GetMapping("/conversations")</p>
+<p>ResponseEntity&lt;List&lt;ConversationSummary&gt;&gt; getConversations(</p>
+<p>@AuthenticationPrincipal UserPrincipal user);</p>
+
+<p>@GetMapping("/conversations/{conversationId}")</p>
+<p>ResponseEntity&lt;Page&lt;MessageResponse&gt;&gt; getMessages(</p>
+<p>@PathVariable String conversationId, Pageable pageable);</p>
+
+<p>@PostMapping("/send")</p>
+<p>ResponseEntity&lt;MessageResponse&gt; sendMessage(</p>
+<p>@Valid @RequestBody SendMessageRequest req,</p>
+<p>@AuthenticationPrincipal UserPrincipal user);</p>
+
+<p>@PatchMapping("/{messageId}/read")</p>
+<p>ResponseEntity&lt;Void&gt; markMessageRead(@PathVariable String messageId);</p>
+<p>}</code></pre></p>
+
+<strong>MongoDB Repos</strong>: <code>MessageRepository</code>
+<strong>WebSocket</strong>: Messages pushed to <code>/queue/messages/{userId}</code> in real-time
+
+<footer style="margin-top:3rem;padding-top:1rem;border-top:1px solid #e5e7eb;color:#9ca3af;font-size:0.8rem;text-align:center;">LocalLens Architecture Documentation - Generated 2026-03-14</footer>
+</body></html>

@@ -1,0 +1,77 @@
+spring:
+  application:
+    name: locallens-backend
+  data:
+    mongodb:
+      uri: mongodb://localhost:27017/locallens
+    redis:
+      host: localhost
+      port: 6379
+      password: ${REDIS_PASSWORD:}
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+
+server:
+  port: 8080
+
+# JWT Configuration
+jwt:
+  secret: ${JWT_SECRET:default-dev-secret-change-in-production-min-256-bits-long-string}
+  expiration-ms: ${JWT_EXPIRATION_MS:900000}
+  refresh-expiration-ms: ${JWT_REFRESH_EXPIRATION_MS:604800000}
+
+# External API Keys
+claude:
+  api-key: ${CLAUDE_API_KEY:}
+  model: claude-sonnet-4-20250514
+  max-tokens-generation: 8000
+  max-tokens-replan: 3000
+
+openweathermap:
+  api-key: ${OPENWEATHERMAP_API_KEY:}
+  base-url: https://api.openweathermap.org/data/2.5
+
+tomtom:
+  api-key: ${TOMTOM_API_KEY:}
+  base-url: https://api.tomtom.com
+
+google:
+  places:
+    api-key: ${GOOGLE_PLACES_API_KEY:}
+  oauth:
+    client-id: ${GOOGLE_OAUTH_CLIENT_ID:}
+    client-secret: ${GOOGLE_OAUTH_CLIENT_SECRET:}
+
+eventbrite:
+  api-key: ${EVENTBRITE_API_KEY:}
+  base-url: https://www.eventbriteapi.com/v3
+
+stripe:
+  secret-key: ${STRIPE_SECRET_KEY:}
+  webhook-secret: ${STRIPE_WEBHOOK_SECRET:}
+  platform-commission: ${STRIPE_PLATFORM_COMMISSION:0.15}
+
+sendgrid:
+  api-key: ${SENDGRID_API_KEY:}
+
+# CORS
+cors:
+  allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:3000}
+
+# Actuator
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: when-authorized
+
+# Logging
+logging:
+  level:
+    com.locallens: DEBUG
+    org.springframework.data.mongodb: INFO

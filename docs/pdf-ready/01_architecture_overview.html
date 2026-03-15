@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html><head>
+<meta charset="UTF-8">
+<title>LocalLens - 01 architecture overview</title>
+<style>body { font-family: Segoe UI, -apple-system, sans-serif; max-width: 900px; margin: 2rem auto; padding: 0 2rem; color: #1a1a2e; line-height: 1.7; }
+h1 { color: #4f46e5; border-bottom: 3px solid #4f46e5; padding-bottom: 0.5rem; margin-top: 2rem; }
+h2 { color: #6366f1; border-bottom: 1px solid #e5e7eb; padding-bottom: 0.3rem; margin-top: 1.5rem; }
+h3 { color: #7c3aed; margin-top: 1.2rem; }
+code { background: #f3f4f6; padding: 2px 6px; border-radius: 4px; font-size: 0.9em; }
+pre { background: #1e1e2e; color: #cdd6f4; padding: 1rem; border-radius: 8px; overflow-x: auto; font-size: 0.85rem; }
+pre code { background: none; padding: 0; color: inherit; }
+table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
+th, td { border: 1px solid #d1d5db; padding: 0.5rem 0.75rem; text-align: left; font-size: 0.9rem; }
+th { background: #f3f4f6; font-weight: 600; }
+tr:nth-child(even) { background: #f9fafb; }
+blockquote { border-left: 4px solid #4f46e5; padding-left: 1rem; color: #6b7280; margin: 1rem 0; }
+hr { border: none; border-top: 2px solid #e5e7eb; margin: 2rem 0; }
+@media print { body { max-width: 100%; margin: 0; } pre { white-space: pre-wrap; } }</style>
+</head><body>
+<h1>LocalLens — System Architecture Overview</h1>
+
+<h2>Platform Vision</h2>
+
+<strong>LocalLens</strong> is a two-sided hyperlocal travel marketplace that replaces the fragmented stack of Google Maps + Booking.com + TripAdvisor + Notes + Flight apps with a single AI-powered dashboard. It surfaces hyperlocal experiences from verified local creators and dynamically replans itineraries in real-time based on weather, traffic, and venue status.
+
+<hr>
+
+<h2>High-Level Architecture Diagram</h2>
+
+<pre><code>graph TB
+<p>subgraph "Client Layer"</p>
+<p>RWA["React 18 SPA&lt;br/&gt;(Bootstrap 5 + Deck.gl)"]</p>
+<p>PWA["PWA / Mobile"]</p>
+<p>end</p>
+
+<p>subgraph "API Gateway &amp; Auth"</p>
+<p>GW["Spring Cloud Gateway"]</p>
+<p>AUTH["AuthService&lt;br/&gt;(JWT + OAuth2)"]</p>
+<p>end</p>
+
+<p>subgraph "Core Services (Spring Boot 3.x — Modular Monolith)"</p>
+<p>TRIP["TripService"]</p>
+<p>AI["ItineraryAIService"]</p>
+<p>REPLAN["ReplanningService"]</p>
+<p>MKT["MarketplaceService"]</p>
+<p>PAY["PaymentService"]</p>
+<p>MAP["MapService"]</p>
+<p>EVT["EventAggregatorService"]</p>
+<p>NOTIF["NotificationService"]</p>
+<p>ANALYTICS["AnalyticsService"]</p>
+<p>end</p>
+
+<p>subgraph "Real-Time Layer"</p>
+<p>WS["WebSocket Broker&lt;br/&gt;(STOMP/SockJS)"]</p>
+<p>FCM["Firebase Cloud Messaging"]</p>
+<p>end</p>
+
+<p>subgraph "Data Layer"</p>
+<p>MONGO[("MongoDB Atlas&lt;br/&gt;(Primary Store)")]</p>
+<p>REDIS[("Redis&lt;br/&gt;(Cache + Pub/Sub)")]</p>
+<p>end</p>
+
+<p>subgraph "External APIs"</p>
+<p>CLAUDE["Claude API&lt;br/&gt;(Anthropic)"]</p>
+<p>OWM["OpenWeatherMap"]</p>
+<p>TOMTOM["TomTom Traffic"]</p>
+<p>GPLACES["Google Places"]</p>
+<p>EBRITE["Eventbrite API"]</p>
+<p>STRIPE["Stripe Connect"]</p>
+<p>SGRID["SendGrid"]</p>
+<p>MAPBOX["Mapbox / MapLibre Tiles"]</p>
+<p>end</p>
+
+<p>RWA --&gt;|HTTPS + WS| GW</p>
+<p>PWA --&gt;|HTTPS + WS| GW</p>
+<p>GW --&gt; AUTH</p>
+<p>GW --&gt; TRIP</p>
+<p>GW --&gt; AI</p>
+<p>GW --&gt; MKT</p>
+<p>GW --&gt; MAP</p>
+<p>GW --&gt; EVT</p>
+<p>GW --&gt; NOTIF</p>
+
+<p>TRIP --&gt; MONGO</p>
+<p>AI --&gt; CLAUDE</p>
+<p>AI --&gt; MONGO</p>
+<p>REPLAN --&gt; OWM</p>
+<p>REPLAN --&gt; TOMTOM</p>
+<p>REPLAN --&gt; GPLACES</p>
+<p>REPLAN --&gt; AI</p>
+<p>REPLAN --&gt; WS</p>
+<p>MKT --&gt; MONGO</p>
+<p>MKT --&gt; PAY</p>
+<p>PAY --&gt; STRIPE</p>
+<p>MAP --&gt; MONGO</p>
+<p>MAP --&gt; MAPBOX</p>
+<p>MAP --&gt; TOMTOM</p>
+<p>EVT --&gt; EBRITE</p>
+<p>EVT --&gt; MONGO</p>
+<p>NOTIF --&gt; WS</p>
+<p>NOTIF --&gt; SGRID</p>
+<p>NOTIF --&gt; FCM</p>
+<p>ANALYTICS --&gt; MONGO</p>
+<p>ANALYTICS --&gt; REDIS</p>
+
+<p>TRIP --&gt; REDIS</p>
+<p>MAP --&gt; REDIS</code></pre></p>
+
+<hr>
+
+<h2>Service Communication Pattern</h2>
+
+<pre><code>sequenceDiagram
+<p>participant U as React Client</p>
+<p>participant GW as API Gateway</p>
+<p>participant TS as TripService</p>
+<p>participant AIS as ItineraryAIService</p>
+<p>participant MS as MarketplaceService</p>
+<p>participant Claude as Claude API</p>
+<p>participant WS as WebSocket Broker</p>
+<p>participant DB as MongoDB</p>
+
+<p>U-&gt;&gt;GW: POST /api/trips (trip form data)</p>
+<p>GW-&gt;&gt;TS: Create trip document</p>
+<p>TS-&gt;&gt;DB: Insert trip</p>
+<p>TS-&gt;&gt;AIS: Generate itinerary request</p>
+<p>AIS-&gt;&gt;MS: Fetch matching hyperlocal experiences</p>
+<p>MS-&gt;&gt;DB: Query experiences by destination/dates</p>
+<p>MS--&gt;&gt;AIS: Ranked experience list</p>
+<p>AIS-&gt;&gt;Claude: Prompt with profile + experiences + events</p>
+<p>Claude--&gt;&gt;AIS: Structured itinerary JSON</p>
+<p>AIS-&gt;&gt;DB: Store parsed itinerary</p>
+<p>AIS-&gt;&gt;WS: Publish ITINERARY_READY event</p>
+<p>WS--&gt;&gt;U: Push itinerary to client</p>
+<p>U-&gt;&gt;U: Render full dashboard</code></pre></p>
+
+<hr>
+
+<h2>Dynamic Replanning Flow</h2>
+
+<pre><code>sequenceDiagram
+<p>participant SCHED as WeatherScheduler</p>
+<p>participant OWM as OpenWeatherMap API</p>
+<p>participant RS as ReplanningService</p>
+<p>participant DB as MongoDB</p>
+<p>participant AIS as ItineraryAIService</p>
+<p>participant Claude as Claude API</p>
+<p>participant WS as WebSocket Broker</p>
+<p>participant U as React Client</p>
+
+<p>SCHED-&gt;&gt;OWM: Poll weather for active trip destinations</p>
+<p>OWM--&gt;&gt;SCHED: Storm alert for Kyoto</p>
+<p>SCHED-&gt;&gt;RS: Trigger replan (tripId, reason=WEATHER)</p>
+<p>RS-&gt;&gt;DB: Fetch affected itinerary days</p>
+<p>RS-&gt;&gt;AIS: Request replan with weather context</p>
+<p>AIS-&gt;&gt;Claude: Replan prompt (current plan + weather + alternatives)</p>
+<p>Claude--&gt;&gt;AIS: Updated day plan JSON</p>
+<p>AIS--&gt;&gt;RS: Parsed new itinerary slots</p>
+<p>RS-&gt;&gt;RS: Compute diff (old vs new)</p>
+<p>RS-&gt;&gt;DB: Store replan log with reason code</p>
+<p>RS-&gt;&gt;DB: Update itinerary</p>
+<p>RS-&gt;&gt;WS: Push REPLAN_TRIGGERED + diff payload</p>
+<p>WS--&gt;&gt;U: Toast: "Storm Alert — Day 3 updated"</p>
+<p>U-&gt;&gt;U: Show diff modal (old vs new side-by-side)</code></pre></p>
+
+<hr>
+
+<h2>Deployment Architecture</h2>
+
+<pre><code>graph LR
+<p>subgraph "GitHub"</p>
+<p>REPO["Monorepo"]</p>
+<p>GHA["GitHub Actions CI/CD"]</p>
+<p>end</p>
+
+<p>subgraph "Container Registry"</p>
+<p>GHCR["GitHub Container Registry"]</p>
+<p>end</p>
+
+<p>subgraph "Production (Railway / Render)"</p>
+<p>FE["Frontend Container&lt;br/&gt;(nginx + React build)"]</p>
+<p>BE["Backend Container&lt;br/&gt;(Spring Boot JAR)"]</p>
+<p>REDIS_P["Redis Container"]</p>
+<p>end</p>
+
+<p>subgraph "Managed Services"</p>
+<p>ATLAS["MongoDB Atlas"]</p>
+<p>CF["Cloudflare CDN"]</p>
+<p>end</p>
+
+<p>REPO --&gt; GHA</p>
+<p>GHA --&gt; GHCR</p>
+<p>GHCR --&gt; FE</p>
+<p>GHCR --&gt; BE</p>
+<p>GHCR --&gt; REDIS_P</p>
+<p>FE --&gt; CF</p>
+<p>BE --&gt; ATLAS</p>
+<p>BE --&gt; REDIS_P</code></pre></p>
+
+<hr>
+
+<h2>Technology Decision Matrix</h2>
+
+<tr><td>Layer</td><td>Choice</td><td>Rationale</td></tr>
+<tr><td><strong>Frontend</strong></td><td>React 18 + Bootstrap 5</td><td>Component ecosystem + responsive grid, SSR-ready with Next.js migration path</td></tr>
+<tr><td><strong>State</strong></td><td>Zustand + React Query</td><td>Lightweight client state + automatic server-state caching/invalidation</td></tr>
+<tr><td><strong>Maps</strong></td><td>Deck.gl + MapLibre GL JS</td><td>Open-source 3D visualization, no Mapbox vendor lock-in, WebGL-powered</td></tr>
+<tr><td><strong>Backend</strong></td><td>Spring Boot 3.x (Java 17)</td><td>Enterprise-grade, excellent MongoDB support, built-in WebSocket/STOMP</td></tr>
+<tr><td><strong>Database</strong></td><td>MongoDB Atlas</td><td>Flexible schemas, GeoJSON native, GridFS for documents, TTL indexes</td></tr>
+<tr><td><strong>Cache</strong></td><td>Redis</td><td>Sub-ms reads for heatmap data, session store, pub/sub for cross-service events</td></tr>
+<tr><td><strong>AI</strong></td><td>Claude API (Anthropic)</td><td>Superior structured output, large context window for complex itineraries</td></tr>
+<tr><td><strong>Payments</strong></td><td>Stripe Connect</td><td>Two-sided marketplace payouts, managed KYC, configurable commission</td></tr>
+<tr><td><strong>Email</strong></td><td>SendGrid</td><td>Transactional email at scale, template engine, delivery tracking</td></tr>
+<tr><td><strong>Real-time</strong></td><td>STOMP/SockJS + Firebase</td><td>WebSocket for web, FCM for mobile push, fallback to long-polling</td></tr>
+<tr><td><strong>CI/CD</strong></td><td>GitHub Actions + Docker</td><td>Industry standard, container-native, free tier for open-source</td></tr>
+
+<hr>
+
+<h2>Security Architecture</h2>
+
+<tr><td>Concern</td><td>Implementation</td></tr>
+<tr><td><strong>Authentication</strong></td><td>Spring Security + JWT (access 15min / refresh 7d) + OAuth2 (Google, Apple)</td></tr>
+<tr><td><strong>Authorization</strong></td><td>Role-based: <code>TRAVELER</code>, <code>CREATOR</code>, <code>ADMIN</code> with method-level <code>@PreAuthorize</code></td></tr>
+<tr><td><strong>API Security</strong></td><td>Rate limiting (Bucket4j), CORS whitelist, CSRF for non-API routes</td></tr>
+<tr><td><strong>Data Encryption</strong></td><td>TLS 1.3 in transit, MongoDB field-level encryption for PII</td></tr>
+<tr><td><strong>Secrets</strong></td><td>Spring Cloud Vault or environment variables (never in code)</td></tr>
+<tr><td><strong>Input Validation</strong></td><td>Bean Validation (JSR-380) on all DTOs, sanitized before Claude prompts</td></tr>
+<tr><td><strong>File Upload</strong></td><td>MongoDB GridFS with virus scanning, max 10MB, allowed MIME types only</td></tr>
+
+<footer style="margin-top:3rem;padding-top:1rem;border-top:1px solid #e5e7eb;color:#9ca3af;font-size:0.8rem;text-align:center;">LocalLens Architecture Documentation - Generated 2026-03-14</footer>
+</body></html>

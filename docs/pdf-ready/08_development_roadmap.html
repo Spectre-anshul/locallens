@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html><head>
+<meta charset="UTF-8">
+<title>LocalLens - 08 development roadmap</title>
+<style>body { font-family: Segoe UI, -apple-system, sans-serif; max-width: 900px; margin: 2rem auto; padding: 0 2rem; color: #1a1a2e; line-height: 1.7; }
+h1 { color: #4f46e5; border-bottom: 3px solid #4f46e5; padding-bottom: 0.5rem; margin-top: 2rem; }
+h2 { color: #6366f1; border-bottom: 1px solid #e5e7eb; padding-bottom: 0.3rem; margin-top: 1.5rem; }
+h3 { color: #7c3aed; margin-top: 1.2rem; }
+code { background: #f3f4f6; padding: 2px 6px; border-radius: 4px; font-size: 0.9em; }
+pre { background: #1e1e2e; color: #cdd6f4; padding: 1rem; border-radius: 8px; overflow-x: auto; font-size: 0.85rem; }
+pre code { background: none; padding: 0; color: inherit; }
+table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
+th, td { border: 1px solid #d1d5db; padding: 0.5rem 0.75rem; text-align: left; font-size: 0.9rem; }
+th { background: #f3f4f6; font-weight: 600; }
+tr:nth-child(even) { background: #f9fafb; }
+blockquote { border-left: 4px solid #4f46e5; padding-left: 1rem; color: #6b7280; margin: 1rem 0; }
+hr { border: none; border-top: 2px solid #e5e7eb; margin: 2rem 0; }
+@media print { body { max-width: 100%; margin: 0; } pre { white-space: pre-wrap; } }</style>
+</head><body>
+<h1>LocalLens — Development Roadmap</h1>
+
+<hr>
+
+<h2>Phase Overview</h2>
+
+<pre><code>gantt
+<p>title LocalLens Development Timeline</p>
+<p>dateFormat YYYY-MM-DD</p>
+<p>axisFormat %b %Y</p>
+
+<p>section Phase 1 — MVP</p>
+<p>Project setup &amp; auth          :p1a, 2026-04-01, 2w</p>
+<p>Trip service &amp; AI itinerary   :p1b, after p1a, 2w</p>
+<p>Dashboard UI                  :p1c, after p1a, 3w</p>
+<p>Map with heatmap              :p1d, after p1b, 2w</p>
+<p>Integration &amp; testing         :p1e, after p1c, 1w</p>
+
+<p>section Phase 2 — Marketplace</p>
+<p>Creator onboarding            :p2a, after p1e, 2w</p>
+<p>Experience CRUD &amp; matching    :p2b, after p2a, 3w</p>
+<p>Stripe payments               :p2c, after p2b, 2w</p>
+<p>Booking flow &amp; notifications  :p2d, after p2c, 2w</p>
+<p>Event aggregation             :p2e, after p2a, 2w</p>
+<p>Reviews &amp; messaging           :p2f, after p2d, 1w</p>
+<p>Integration &amp; testing         :p2g, after p2f, 2w</p>
+
+<p>section Phase 3 — Intelligence</p>
+<p>Real-time replanning engine   :p3a, after p2g, 3w</p>
+<p>Crowd intelligence pipeline   :p3b, after p3a, 2w</p>
+<p>Creator analytics dashboard   :p3c, after p3b, 2w</p>
+<p>PWA &amp; push notifications      :p3d, after p3c, 3w</p>
+<p>Performance &amp; load testing    :p3e, after p3d, 2w</p>
+<p>Security audit &amp; launch prep  :p3f, after p3e, 2w</p>
+<p>Soft launch &amp; feedback loop   :p3g, after p3f, 2w</code></pre></p>
+
+<hr>
+
+<h2>Phase 1 — MVP (8 Weeks)</h2>
+
+<strong>Goal</strong>: Users can create a trip, get an AI-generated itinerary, and view it on a dashboard with an interactive 3D map.
+
+<h3>Sprint 1–2: Foundation (Weeks 1–2)</h3>
+
+<tr><td>Task</td><td>Details</td></tr>
+<tr><td>Project scaffolding</td><td>Spring Boot 3.x + Gradle, React 18 + Vite, Docker Compose</td></tr>
+<tr><td>MongoDB setup</td><td>Atlas cluster (or local Docker), all indexes from schema doc</td></tr>
+<tr><td>Auth system</td><td><code>AuthService</code> complete: register, login, JWT issue/refresh, Google OAuth 2.0</td></tr>
+<tr><td>Base frontend</td><td>Vite + React Router + Bootstrap 5, login/register pages, Zustand + React Query setup</td></tr>
+<tr><td>API client</td><td>Axios instance with JWT interceptor, auto-refresh on 401</td></tr>
+<tr><td>CI/CD pipeline</td><td>GitHub Actions: build + test on PR, Docker build on main push</td></tr>
+
+<strong>Tech Decisions</strong>:
+<li>Zustand over Redux (simpler, less boilerplate for this scale)</li>
+<li>Vite over CRA (10x faster HMR, native ESM)</li>
+<li>Gradle over Maven (better incremental build, Kotlin DSL)</li>
+<li>MapLibre GL JS over Mapbox (fully open-source, no token required for basic tiles)</li>
+
+<h3>Sprint 3–4: Core Trip & AI (Weeks 3–4)</h3>
+
+<tr><td>Task</td><td>Details</td></tr>
+<tr><td>Trip CRUD</td><td><code>TripService</code>: create, list, get, update, delete trips</td></tr>
+<tr><td>Trip creation wizard</td><td>4-step React wizard with validation</td></tr>
+<tr><td>Claude API integration</td><td><code>ItineraryAIService</code>: system prompt, generation, JSON parsing</td></tr>
+<tr><td>Itinerary day storage</td><td>MongoDB persistence of parsed itinerary days</td></tr>
+<tr><td>Async generation</td><td>WebSocket push of <code>ITINERARY_READY</code> event</td></tr>
+<tr><td>Flight & accommodation</td><td>Manual entry UI + trip document updates</td></tr>
+<tr><td>Document upload</td><td>GridFS upload/download for passport, tickets, etc.</td></tr>
+
+<strong>Key Decisions</strong>:
+<li>Async itinerary generation (202 Accepted) because Claude calls take 10–20s</li>
+<li>WebSocket (STOMP/SockJS) for generation status push</li>
+<li>Claude <code>claude-sonnet-4-20250514</code> for cost/quality balance</li>
+
+<h3>Sprint 5–7: Dashboard & Map (Weeks 5–7)</h3>
+
+<tr><td>Task</td><td>Details</td></tr>
+<tr><td>Dashboard layout</td><td>Bootstrap 5 grid, collapsible panels with @dnd-kit</td></tr>
+<tr><td>Trip overview card</td><td>Dates, destination, budget gauge, weather widget</td></tr>
+<tr><td>Itinerary timeline</td><td>Day tabs, activity cards with drag-to-reorder</td></tr>
+<tr><td>Budget tracker</td><td>Category breakdown with progress bars</td></tr>
+<tr><td>Local events panel</td><td>Static display (API aggregation in Phase 2)</td></tr>
+<tr><td>Notes panel</td><td>Document list from GridFS</td></tr>
+<tr><td>Dark mode</td><td>CSS custom properties toggle</td></tr>
+<tr><td>Map integration</td><td>MapLibre GL JS base map</td></tr>
+<tr><td>Heatmap layer</td><td>Deck.gl HeatmapLayer with static seed data</td></tr>
+<tr><td>POI markers</td><td>Deck.gl IconLayer from MongoDB experiences</td></tr>
+<tr><td>Route visualization</td><td>Deck.gl PathLayer from itinerary GPS coords</td></tr>
+<tr><td>Map tooltips</td><td>Hover info for POIs</td></tr>
+
+<h3>Sprint 8: Integration & QA (Week 8)</h3>
+
+<tr><td>Task</td><td>Details</td></tr>
+<tr><td>End-to-end flow</td><td>Full trip creation → AI generation → dashboard display</td></tr>
+<tr><td>Responsive testing</td><td>Mobile, tablet, desktop breakpoints</td></tr>
+<tr><td>Performance</td><td>Lighthouse audit, lazy loading, code splitting</td></tr>
+<tr><td>Bug fixes</td><td>Critical path bug fixing</td></tr>
+<tr><td>Documentation</td><td>API docs (Swagger/OpenAPI), README</td></tr>
+
+<strong>Phase 1 Deliverable</strong>: Working MVP where a user can sign up, create a trip, receive an AI itinerary, view it on a dashboard with interactive map.
+
+<hr>
+
+<h2>Phase 2 — Marketplace (12 Weeks)</h2>
+
+<strong>Goal</strong>: Two-sided marketplace with creator onboarding, experience booking, Stripe payments, event aggregation, and messaging.
+
+<h3>Sprint 1–2: Creator System (Weeks 9–10)</h3>
+
+<tr><td>Task</td><td>Details</td></tr>
+<tr><td>Creator registration</td><td>Role-based signup, creator profile fields</td></tr>
+<tr><td>Experience CRUD</td><td>Create, edit, archive experiences with media upload</td></tr>
+<tr><td>Availability calendar</td><td>Recurring + one-off slots with React calendar component</td></tr>
+<tr><td>Creator dashboard skeleton</td><td>Bookings list, earnings placeholder</td></tr>
+
+<h3>Sprint 3–5: Matching & Booking (Weeks 11–13)</h3>
+
+<tr><td>Task</td><td>Details</td></tr>
+<tr><td>Experience search</td><td>Geo-search, category filter, price range, sort by rating/distance</td></tr>
+<tr><td>Experience detail page</td><td>Full page with gallery, reviews, booking CTA</td></tr>
+<tr><td><code>ExperienceMatchingService</code></td><td>Scoring algorithm with weighted criteria</td></tr>
+<tr><td>AI injection</td><td>Pass matched experiences to Claude for [LOCAL PICK] injection</td></tr>
+<tr><td>Booking flow</td><td>Date/time selection, group size, special requests</td></tr>
+
+<h3>Sprint 6–7: Payments (Weeks 14–15)</h3>
+
+<tr><td>Task</td><td>Details</td></tr>
+<tr><td>Stripe integration</td><td>PaymentIntent creation, webhook handler</td></tr>
+<tr><td>Stripe Connect</td><td>Creator onboarding, payout after completed booking</td></tr>
+<tr><td>Commission logic</td><td>Configurable platform fee (default 15%)</td></tr>
+<tr><td>Refund handling</td><td>Full/partial refund on cancellation</td></tr>
+<tr><td>Payment UI</td><td>Stripe Elements integration in React</td></tr>
+
+<h3>Sprint 8–9: Notifications & Events (Weeks 16–17)</h3>
+
+<tr><td>Task</td><td>Details</td></tr>
+<tr><td>Notification system</td><td>In-app (WebSocket push), email (SendGrid)</td></tr>
+<tr><td>Booking notifications</td><td>Confirmed, declined, cancelled, reminder</td></tr>
+<tr><td>Eventbrite integration</td><td><code>EventAggregatorService</code> nightly batch + hourly refresh</td></tr>
+<tr><td>Event feed UI</td><td>Tonight's events, filtered by destination + dates</td></tr>
+<tr><td>Creator events</td><td>Manual event submission</td></tr>
+
+<h3>Sprint 10: Reviews & Messaging (Week 18)</h3>
+
+<tr><td>Task</td><td>Details</td></tr>
+<tr><td>Review system</td><td>Post-experience reviews with ratings + photos</td></tr>
+<tr><td>Rating aggregation</td><td>Update experience + creator ratings on new review</td></tr>
+<tr><td>Direct messaging</td><td>STOMP-based real-time chat between traveler ↔ creator</td></tr>
+<tr><td>Message inbox UI</td><td>Conversation list, chat window</td></tr>
+
+<h3>Sprint 11–12: Integration & QA (Weeks 19–20)</h3>
+
+<tr><td>Task</td><td>Details</td></tr>
+<tr><td>End-to-end marketplace flow</td><td>Browse → book → pay → review</td></tr>
+<tr><td>Creator dashboard complete</td><td>Earnings chart, booking management, AI stats</td></tr>
+<tr><td>Payment testing</td><td>Test mode with Stripe test keys</td></tr>
+<tr><td>Load testing</td><td>JMeter for API endpoints</td></tr>
+<tr><td>Security review</td><td>OWASP top 10 check, penetration testing</td></tr>
+
+<strong>Phase 2 Deliverable</strong>: Full marketplace with creator profiles, experience listings, Stripe payments, event feed, reviews, and messaging.
+
+<hr>
+
+<h2>Phase 3 — Intelligence (16 Weeks)</h2>
+
+<strong>Goal</strong>: Real-time dynamic replanning, live crowd intelligence, creator analytics, PWA, and production hardening.
+
+<h3>Sprint 1–3: Replanning Engine (Weeks 21–23)</h3>
+
+<tr><td>Task</td><td>Details</td></tr>
+<tr><td>Weather scheduler</td><td>Poll OpenWeatherMap every 30 min for active trip destinations</td></tr>
+<tr><td>Traffic scheduler</td><td>Poll TomTom every 15 min for upcoming activity routes</td></tr>
+<tr><td>Venue status checker</td><td>Google Places operational status hourly</td></tr>
+<tr><td>Replan orchestrator</td><td>Trigger → fetch context → Claude replan → diff → push</td></tr>
+<tr><td>Replan logging</td><td>Full audit trail in <code>replan_logs</code> collection</td></tr>
+<tr><td>Replan UI</td><td>Toast notification, diff modal (old vs new side-by-side)</td></tr>
+<tr><td>Accept/reject flow</td><td>User can keep original or accept replan</td></tr>
+<tr><td>Manual replan</td><td>User-initiated replan for specific slots</td></tr>
+
+<h3>Sprint 4–5: Crowd Intelligence (Weeks 24–25)</h3>
+
+<tr><td>Task</td><td>Details</td></tr>
+<tr><td>Footfall service</td><td>Anonymous visit logging, grid aggregation</td></tr>
+<tr><td>Heatmap computation</td><td>30-min precompute, GeoJSON grid, Redis cache</td></tr>
+<tr><td>Time slider</td><td>Filter heatmap by hour of day</td></tr>
+<tr><td>Crowd level badges</td><td>LOW/MODERATE/HIGH/VERY_HIGH on POI tooltips</td></tr>
+<tr><td>Best-time recommendation</td><td>Algorithm based on historical footfall patterns</td></tr>
+<tr><td>Traffic overlay</td><td>Deck.gl TripsLayer with TomTom real-time data</td></tr>
+<tr><td>Hidden gems layer</td><td>ScatterplotLayer for creator-tagged undiscovered spots</td></tr>
+
+<h3>Sprint 6–7: Creator Analytics (Weeks 26–27)</h3>
+
+<tr><td>Task</td><td>Details</td></tr>
+<tr><td>AI injection stats</td><td>Track which itineraries included creator experiences</td></tr>
+<tr><td>Visibility dashboard</td><td>Charts: impressions, bookings, conversion rate</td></tr>
+<tr><td>Earnings analytics</td><td>Revenue by period, comparison charts</td></tr>
+<tr><td>Platform admin panel</td><td>Total GMV, active users, popular destinations</td></tr>
+
+<h3>Sprint 8–10: PWA & Push (Weeks 28–30)</h3>
+
+<tr><td>Task</td><td>Details</td></tr>
+<tr><td>PWA manifest</td><td>Installable web app with offline support</td></tr>
+<tr><td>Service worker</td><td>Cache-first for static, network-first for API</td></tr>
+<tr><td>Firebase Cloud Messaging</td><td>Push notifications for replan alerts, booking updates</td></tr>
+<tr><td>Offline itinerary</td><td>Cache current trip itinerary for offline viewing</td></tr>
+<tr><td>Mobile responsive</td><td>Touch-optimized timeline, bottom nav, swipe gestures</td></tr>
+
+<h3>Sprint 11–12: Performance & Security (Weeks 31–32)</h3>
+
+<tr><td>Task</td><td>Details</td></tr>
+<tr><td>Load testing</td><td>K6/JMeter: 1000 concurrent users, WebSocket stress test</td></tr>
+<tr><td>Database optimization</td><td>Query profiling, index tuning, aggregation pipelines</td></tr>
+<tr><td>CDN setup</td><td>Cloudflare for static assets + API caching headers</td></tr>
+<tr><td>Rate limiting</td><td>Bucket4j on Claude API calls, auth endpoints</td></tr>
+<tr><td>Security audit</td><td>Dependencies (Snyk), OWASP ZAP, Stripe PCI compliance</td></tr>
+
+<h3>Sprint 13–14: Launch Prep (Weeks 33–34)</h3>
+
+<tr><td>Task</td><td>Details</td></tr>
+<tr><td>Staging environment</td><td>Production-mirror on Railway</td></tr>
+<tr><td>Data seeding</td><td>Sample creators, experiences, events for 5 cities</td></tr>
+<tr><td>Monitoring</td><td>Spring Actuator + Prometheus + Grafana dashboards</td></tr>
+<tr><td>Error tracking</td><td>Sentry for frontend + backend</td></tr>
+<tr><td>Documentation</td><td>API docs (OpenAPI), creator onboarding guide, user guide</td></tr>
+
+<h3>Sprint 15–16: Soft Launch (Weeks 35–36)</h3>
+
+<tr><td>Task</td><td>Details</td></tr>
+<tr><td>Beta testing</td><td>50 travelers + 10 creators in 2 pilot cities</td></tr>
+<tr><td>Feedback collection</td><td>In-app feedback widget, user interviews</td></tr>
+<tr><td>Bug fixing</td><td>Priority P0/P1 bug resolution</td></tr>
+<tr><td>Performance tuning</td><td>Based on real-world monitoring data</td></tr>
+
+<hr>
+
+<h2>Testing Strategy</h2>
+
+<h3>Backend (Spring Boot)</h3>
+
+<tr><td>Layer</td><td>Tool</td><td>Coverage Target</td></tr>
+<tr><td>Unit tests</td><td>JUnit 5 + Mockito</td><td>All service methods, 80%+ line coverage</td></tr>
+<tr><td>Integration tests</td><td>Spring Boot Test + Testcontainers</td><td>Repository queries, WebSocket, external API mocks</td></tr>
+<tr><td>API tests</td><td>MockMvc + REST Assured</td><td>All controller endpoints</td></tr>
+<tr><td>Contract tests</td><td>Spring Cloud Contract</td><td>API backward compatibility</td></tr>
+
+<pre><code># Run all backend tests
+<p>./gradlew test</p>
+
+<h1>Run with coverage</h1>
+<p>./gradlew test jacocoTestReport</code></pre></p>
+
+<h3>Frontend (React)</h3>
+
+<tr><td>Layer</td><td>Tool</td><td>Coverage Target</td></tr>
+<tr><td>Unit tests</td><td>Jest + React Testing Library</td><td>All components + hooks, 75%+</td></tr>
+<tr><td>Integration tests</td><td>Jest + MSW (Mock Service Worker)</td><td>API integration flows</td></tr>
+<tr><td>E2E tests</td><td>Playwright</td><td>Critical user journeys (5 scenarios)</td></tr>
+<tr><td>Visual regression</td><td>Storybook + Chromatic</td><td>Component gallery</td></tr>
+
+<pre><code># Run all frontend tests
+<p>npm test -- --watchAll=false --coverage</p>
+
+<h1>E2E</h1>
+<p>npx playwright test</code></pre></p>
+
+<h3>API Testing</h3>
+
+<tr><td>Tool</td><td>Purpose</td></tr>
+<tr><td>Postman collections</td><td>Manual API testing + CI automation</td></tr>
+<tr><td>Newman</td><td>Run Postman collections in GitHub Actions</td></tr>
+<tr><td>Swagger UI</td><td>Interactive API documentation at <code>/swagger-ui.html</code></td></tr>
+
+<h3>E2E Test Scenarios</h3>
+
+<p>1. <strong>New Trip Flow</strong>: Register → Create trip → Generate itinerary → View dashboard</p>
+<p>2. <strong>Booking Flow</strong>: Browse experiences → View detail → Book → Pay → Receive confirmation</p>
+<p>3. <strong>Creator Flow</strong>: Register as creator → Create experience → Receive booking → Accept → Get payout</p>
+<p>4. <strong>Replan Flow</strong>: Trigger weather replan → View diff → Accept changes</p>
+<p>5. <strong>Map Flow</strong>: Open map → Filter by time → Hover POI → Add to itinerary</p>
+
+<hr>
+
+<h2>Team Structure (Suggested)</h2>
+
+<tr><td>Role</td><td>Count</td><td>Responsibility</td></tr>
+<tr><td>Tech Lead / Architect</td><td>1</td><td>Architecture decisions, code review, Claude prompt engineering</td></tr>
+<tr><td>Backend Engineer</td><td>2</td><td>Spring Boot services, MongoDB, external API integrations</td></tr>
+<tr><td>Frontend Engineer</td><td>2</td><td>React dashboard, map, marketplace UI</td></tr>
+<tr><td>Full-stack Engineer</td><td>1</td><td>WebSocket layer, notifications, DevOps</td></tr>
+<tr><td>UI/UX Designer</td><td>1</td><td>Design system, user flows, Figma prototypes</td></tr>
+<tr><td>QA Engineer</td><td>1</td><td>Testing strategy, E2E automation, performance testing</td></tr>
+
+<hr>
+
+<h2>Risk Mitigation</h2>
+
+<tr><td>Risk</td><td>Mitigation</td></tr>
+<tr><td>Claude API cost overruns</td><td>Token budget per trip, cache repeated destinations, fallback to cheaper model</td></tr>
+<tr><td>Claude response parsing failures</td><td>Strict JSON schema validation, retry with adjusted prompt, manual fallback</td></tr>
+<tr><td>WebSocket scaling</td><td>Redis pub/sub for multi-instance, sticky sessions as fallback</td></tr>
+<tr><td>Stripe Connect complexity</td><td>Start with standard accounts (easiest), upgrade to custom for more control</td></tr>
+<tr><td>Map tile costs</td><td>MapLibre GL JS (free) + OpenStreetMap tiles (free), Mapbox only if needed</td></tr>
+<tr><td>MongoDB performance at scale</td><td>Proper indexing, read replicas, time-series for footfall data</td></tr>
+<tr><td>External API rate limits</td><td>Redis-based rate limiter, request queueing, graceful degradation</td></tr>
+
+<footer style="margin-top:3rem;padding-top:1rem;border-top:1px solid #e5e7eb;color:#9ca3af;font-size:0.8rem;text-align:center;">LocalLens Architecture Documentation - Generated 2026-03-14</footer>
+</body></html>

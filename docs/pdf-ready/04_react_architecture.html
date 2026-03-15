@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html><head>
+<meta charset="UTF-8">
+<title>LocalLens - 04 react architecture</title>
+<style>body { font-family: Segoe UI, -apple-system, sans-serif; max-width: 900px; margin: 2rem auto; padding: 0 2rem; color: #1a1a2e; line-height: 1.7; }
+h1 { color: #4f46e5; border-bottom: 3px solid #4f46e5; padding-bottom: 0.5rem; margin-top: 2rem; }
+h2 { color: #6366f1; border-bottom: 1px solid #e5e7eb; padding-bottom: 0.3rem; margin-top: 1.5rem; }
+h3 { color: #7c3aed; margin-top: 1.2rem; }
+code { background: #f3f4f6; padding: 2px 6px; border-radius: 4px; font-size: 0.9em; }
+pre { background: #1e1e2e; color: #cdd6f4; padding: 1rem; border-radius: 8px; overflow-x: auto; font-size: 0.85rem; }
+pre code { background: none; padding: 0; color: inherit; }
+table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
+th, td { border: 1px solid #d1d5db; padding: 0.5rem 0.75rem; text-align: left; font-size: 0.9rem; }
+th { background: #f3f4f6; font-weight: 600; }
+tr:nth-child(even) { background: #f9fafb; }
+blockquote { border-left: 4px solid #4f46e5; padding-left: 1rem; color: #6b7280; margin: 1rem 0; }
+hr { border: none; border-top: 2px solid #e5e7eb; margin: 2rem 0; }
+@media print { body { max-width: 100%; margin: 0; } pre { white-space: pre-wrap; } }</style>
+</head><body>
+<h1>LocalLens — React Frontend Architecture</h1>
+
+<p>> <strong>Stack</strong>: React 18 + Bootstrap 5 + Zustand + React Query + Deck.gl + MapLibre GL JS + @dnd-kit</p>
+
+<hr>
+
+<h2>Project Structure</h2>
+
+<pre><code>locallens-frontend/
+<p>├── public/</p>
+<p>│   ├── index.html</p>
+<p>│   ├── favicon.ico</p>
+<p>│   ├── manifest.json              # PWA manifest</p>
+<p>│   └── sw.js                      # Service worker (Phase 3)</p>
+<p>├── src/</p>
+<p>│   ├── index.js</p>
+<p>│   ├── App.jsx                    # Root: router + providers</p>
+<p>│   ├── components/</p>
+<p>│   │   ├── common/                # Shared UI components</p>
+<p>│   │   │   ├── Navbar.jsx</p>
+<p>│   │   │   ├── Footer.jsx</p>
+<p>│   │   │   ├── LoadingSpinner.jsx</p>
+<p>│   │   │   ├── ErrorBoundary.jsx</p>
+<p>│   │   │   ├── Toast.jsx</p>
+<p>│   │   │   ├── Modal.jsx</p>
+<p>│   │   │   ├── ConfirmDialog.jsx</p>
+<p>│   │   │   ├── Avatar.jsx</p>
+<p>│   │   │   ├── Badge.jsx</p>
+<p>│   │   │   ├── Rating.jsx</p>
+<p>│   │   │   ├── PriceDisplay.jsx</p>
+<p>│   │   │   ├── DateRangePicker.jsx</p>
+<p>│   │   │   ├── BudgetSlider.jsx</p>
+<p>│   │   │   ├── TagSelector.jsx</p>
+<p>│   │   │   ├── NotificationBell.jsx</p>
+<p>│   │   │   └── DarkModeToggle.jsx</p>
+<p>│   │   ├── auth/</p>
+<p>│   │   │   ├── LoginForm.jsx</p>
+<p>│   │   │   ├── RegisterForm.jsx</p>
+<p>│   │   │   ├── OAuthButtons.jsx</p>
+<p>│   │   │   └── ProtectedRoute.jsx</p>
+<p>│   │   ├── trip/</p>
+<p>│   │   │   ├── TripWizard.jsx           # Multi-step trip creation</p>
+<p>│   │   │   ├── TripWizardStep1.jsx      # Destination + dates</p>
+<p>│   │   │   ├── TripWizardStep2.jsx      # Budget + style + interests</p>
+<p>│   │   │   ├── TripWizardStep3.jsx      # Group size + accessibility</p>
+<p>│   │   │   ├── TripWizardStep4.jsx      # Review + submit</p>
+<p>│   │   │   ├── TripCard.jsx             # Summary card for trip list</p>
+<p>│   │   │   └── TripList.jsx</p>
+<p>│   │   ├── dashboard/</p>
+<p>│   │   │   ├── Dashboard.jsx            # Main layout orchestrator</p>
+<p>│   │   │   ├── TripOverviewCard.jsx     # Dates, destination, budget gauge, weather</p>
+<p>│   │   │   ├── ItineraryTimeline.jsx    # Day-view timeline with DnD</p>
+<p>│   │   │   ├── ActivityCard.jsx         # Time / activity / transport / cost / status</p>
+<p>│   │   │   ├── FlightsPanel.jsx</p>
+<p>│   │   │   ├── AccommodationPanel.jsx</p>
+<p>│   │   │   ├── BudgetTracker.jsx        # Category progress bars</p>
+<p>│   │   │   ├── LocalEventsPanel.jsx     # Real-time event feed</p>
+<p>│   │   │   ├── NotesDocumentsPanel.jsx  # Upload + view documents</p>
+<p>│   │   │   ├── WeatherWidget.jsx</p>
+<p>│   │   │   ├── MapWidget.jsx            # Embedded crowd heatmap</p>
+<p>│   │   │   ├── ReplanModal.jsx          # Diff view: old vs new</p>
+<p>│   │   │   ├── ReplanToast.jsx          # "Your day just changed" toast</p>
+<p>│   │   │   └── PanelContainer.jsx       # Collapsible, reorderable wrapper</p>
+<p>│   │   ├── map/</p>
+<p>│   │   │   ├── MapView.jsx              # Full-screen Deck.gl + MapLibre</p>
+<p>│   │   │   ├── HeatmapLayer.jsx         # Deck.gl HeatmapLayer wrapper</p>
+<p>│   │   │   ├── POIMarkers.jsx           # Deck.gl IconLayer</p>
+<p>│   │   │   ├── HiddenGemMarkers.jsx     # Deck.gl ScatterplotLayer</p>
+<p>│   │   │   ├── RouteLayer.jsx           # Deck.gl PathLayer</p>
+<p>│   │   │   ├── TrafficOverlay.jsx       # Deck.gl TripsLayer</p>
+<p>│   │   │   ├── TimeSlider.jsx           # Filter by hour of day</p>
+<p>│   │   │   ├── MapTooltip.jsx           # Hover tooltip for POIs</p>
+<p>│   │   │   ├── MapFilterBar.jsx         # Right Now | Morning | Afternoon | Evening</p>
+<p>│   │   │   └── AddToItineraryButton.jsx # Quick-add from map pin</p>
+<p>│   │   ├── marketplace/</p>
+<p>│   │   │   ├── ExperienceGrid.jsx       # Browse experiences</p>
+<p>│   │   │   ├── ExperienceCard.jsx       # Card with image, price, rating</p>
+<p>│   │   │   ├── ExperienceDetail.jsx     # Full detail page</p>
+<p>│   │   │   ├── BookingForm.jsx          # Date, group size, payment</p>
+<p>│   │   │   ├── ReviewList.jsx</p>
+<p>│   │   │   ├── ReviewForm.jsx</p>
+<p>│   │   │   ├── CreatorProfile.jsx       # Public creator profile page</p>
+<p>│   │   │   └── SearchFilters.jsx        # Category, price, rating, distance</p>
+<p>│   │   ├── creator/</p>
+<p>│   │   │   ├── CreatorDashboard.jsx     # Creator-side overview</p>
+<p>│   │   │   ├── ExperienceForm.jsx       # Create/edit experience</p>
+<p>│   │   │   ├── AvailabilityCalendar.jsx # Set recurring/one-off slots</p>
+<p>│   │   │   ├── BookingManagement.jsx    # Accept/decline/view bookings</p>
+<p>│   │   │   ├── EarningsChart.jsx        # Revenue over time</p>
+<p>│   │   │   ├── AIInjectionStats.jsx     # Which itineraries used their experience</p>
+<p>│   │   │   ├── MessageInbox.jsx</p>
+<p>│   │   │   └── PayoutHistory.jsx</p>
+<p>│   │   └── messaging/</p>
+<p>│   │       ├── ConversationList.jsx</p>
+<p>│   │       ├── ChatWindow.jsx</p>
+<p>│   │       └── MessageBubble.jsx</p>
+<p>│   ├── pages/</p>
+<p>│   │   ├── HomePage.jsx                 # Landing page with hero, features, CTA</p>
+<p>│   │   ├── LoginPage.jsx</p>
+<p>│   │   ├── RegisterPage.jsx</p>
+<p>│   │   ├── TripCreatePage.jsx           # Trip wizard wrapper</p>
+<p>│   │   ├── DashboardPage.jsx            # Dashboard wrapper</p>
+<p>│   │   ├── MapPage.jsx                  # Full-screen map view</p>
+<p>│   │   ├── ExplorePage.jsx              # Browse marketplace</p>
+<p>│   │   ├── ExperienceDetailPage.jsx</p>
+<p>│   │   ├── CreatorProfilePage.jsx</p>
+<p>│   │   ├── CreatorDashboardPage.jsx</p>
+<p>│   │   ├── MessagesPage.jsx</p>
+<p>│   │   ├── SettingsPage.jsx</p>
+<p>│   │   ├── NotFoundPage.jsx</p>
+<p>│   │   └── AdminPage.jsx               # Admin analytics (Phase 3)</p>
+<p>│   ├── hooks/</p>
+<p>│   │   ├── useAuth.js                   # Auth state + login/logout/register</p>
+<p>│   │   ├── useTrips.js                  # React Query: trip CRUD</p>
+<p>│   │   ├── useItinerary.js              # React Query: itinerary data + mutations</p>
+<p>│   │   ├── useReplan.js                 # WebSocket subscription for replans</p>
+<p>│   │   ├── useExperiences.js            # React Query: experience search + booking</p>
+<p>│   │   ├── useMap.js                    # Heatmap data, POIs, route</p>
+<p>│   │   ├── useEvents.js                 # React Query: events feed</p>
+<p>│   │   ├── useBookings.js               # React Query: booking management</p>
+<p>│   │   ├── useNotifications.js          # WebSocket + REST notifications</p>
+<p>│   │   ├── useMessages.js               # WebSocket + REST messages</p>
+<p>│   │   ├── useWebSocket.js              # STOMP/SockJS connection manager</p>
+<p>│   │   ├── useDarkMode.js               # Theme toggle</p>
+<p>│   │   ├── useDebounce.js</p>
+<p>│   │   └── useGeoLocation.js            # Browser geolocation API</p>
+<p>│   ├── services/</p>
+<p>│   │   ├── api.js                       # Axios instance with JWT interceptor</p>
+<p>│   │   ├── authService.js               # /api/auth/* calls</p>
+<p>│   │   ├── tripService.js               # /api/trips/* calls</p>
+<p>│   │   ├── itineraryService.js          # /api/itinerary/* calls</p>
+<p>│   │   ├── experienceService.js         # /api/experiences/* calls</p>
+<p>│   │   ├── creatorService.js            # /api/creator/* calls</p>
+<p>│   │   ├── paymentService.js            # /api/payments/* calls</p>
+<p>│   │   ├── mapService.js                # /api/map/* calls</p>
+<p>│   │   ├── eventService.js              # /api/events/* calls</p>
+<p>│   │   ├── notificationService.js       # /api/notifications/* calls</p>
+<p>│   │   ├── messageService.js            # /api/messages/* calls</p>
+<p>│   │   └── websocketService.js          # STOMP client setup + subscriptions</p>
+<p>│   ├── store/</p>
+<p>│   │   ├── authStore.js                 # Zustand: user, tokens, login state</p>
+<p>│   │   ├── tripStore.js                 # Zustand: active trip, selected day</p>
+<p>│   │   ├── mapStore.js                  # Zustand: viewport, layers, filters</p>
+<p>│   │   ├── uiStore.js                   # Zustand: dark mode, panel order, modals</p>
+<p>│   │   └── notificationStore.js         # Zustand: unread count, toast queue</p>
+<p>│   ├── utils/</p>
+<p>│   │   ├── constants.js                 # API URLs, enums, config</p>
+<p>│   │   ├── formatters.js                # Date, currency, time formatting</p>
+<p>│   │   ├── validators.js                # Form validation helpers</p>
+<p>│   │   └── mapUtils.js                  # Viewport helpers, layer configs</p>
+<p>│   └── styles/</p>
+<p>│       ├── index.css                    # Global styles + Bootstrap overrides</p>
+<p>│       ├── variables.css                # CSS custom properties + dark mode</p>
+<p>│       ├── dashboard.css</p>
+<p>│       ├── map.css</p>
+<p>│       ├── marketplace.css</p>
+<p>│       └── animations.css               # Transitions + micro-animations</p>
+<p>├── .env                                  # REACT_APP_API_URL, MAPLIBRE_KEY, etc.</p>
+<p>├── package.json</p>
+<p>├── vite.config.js                        # Vite config</p>
+<p>└── README.md</code></pre></p>
+
+<hr>
+
+<h2>Component Tree (Simplified)</h2>
+
+<pre><code>graph TD
+<p>App["App.jsx"]</p>
+<p>App --&gt; Navbar</p>
+<p>App --&gt; Router["React Router"]</p>
+
+<p>Router --&gt; HP["HomePage"]</p>
+<p>Router --&gt; LP["LoginPage"]</p>
+<p>Router --&gt; RP["RegisterPage"]</p>
+<p>Router --&gt; TCP["TripCreatePage"]</p>
+<p>Router --&gt; DP["DashboardPage"]</p>
+<p>Router --&gt; MP["MapPage"]</p>
+<p>Router --&gt; EP["ExplorePage"]</p>
+<p>Router --&gt; EDP["ExperienceDetailPage"]</p>
+<p>Router --&gt; CDP["CreatorDashboardPage"]</p>
+<p>Router --&gt; MsgP["MessagesPage"]</p>
+
+<p>DP --&gt; Dashboard</p>
+<p>Dashboard --&gt; TOC["TripOverviewCard"]</p>
+<p>Dashboard --&gt; IT["ItineraryTimeline"]</p>
+<p>Dashboard --&gt; FP["FlightsPanel"]</p>
+<p>Dashboard --&gt; AP["AccommodationPanel"]</p>
+<p>Dashboard --&gt; BT["BudgetTracker"]</p>
+<p>Dashboard --&gt; LEP["LocalEventsPanel"]</p>
+<p>Dashboard --&gt; NDP["NotesDocumentsPanel"]</p>
+<p>Dashboard --&gt; MW["MapWidget"]</p>
+<p>Dashboard --&gt; RM["ReplanModal"]</p>
+
+<p>IT --&gt; AC1["ActivityCard (DnD)"]</p>
+<p>IT --&gt; AC2["ActivityCard (DnD)"]</p>
+
+<p>MP --&gt; MV["MapView (Deck.gl)"]</p>
+<p>MV --&gt; HL["HeatmapLayer"]</p>
+<p>MV --&gt; PM["POIMarkers"]</p>
+<p>MV --&gt; HG["HiddenGemMarkers"]</p>
+<p>MV --&gt; RL["RouteLayer"]</p>
+<p>MV --&gt; TO["TrafficOverlay"]</p>
+<p>MV --&gt; TS["TimeSlider"]</p>
+<p>MV --&gt; MF["MapFilterBar"]</p>
+
+<p>EP --&gt; EG["ExperienceGrid"]</p>
+<p>EG --&gt; EC1["ExperienceCard"]</p>
+<p>EG --&gt; EC2["ExperienceCard"]</p>
+
+<p>CDP --&gt; CD["CreatorDashboard"]</p>
+<p>CD --&gt; BM["BookingManagement"]</p>
+<p>CD --&gt; ECH["EarningsChart"]</p>
+<p>CD --&gt; AIS["AIInjectionStats"]</p>
+<p>CD --&gt; AC["AvailabilityCalendar"]</code></pre></p>
+
+<hr>
+
+<h2>State Management Strategy</h2>
+
+<h3>Zustand Stores (Client State)</h3>
+
+<tr><td>Store</td><td>Purpose</td><td>Key State</td></tr>
+<tr><td><code>authStore</code></td><td>Authentication</td><td><code>user</code>, <code>accessToken</code>, <code>refreshToken</code>, <code>isAuthenticated</code>, <code>login()</code>, <code>logout()</code></td></tr>
+<tr><td><code>tripStore</code></td><td>Active trip context</td><td><code>activeTripId</code>, <code>selectedDay</code>, <code>panelOrder</code>, <code>setActiveTrip()</code></td></tr>
+<tr><td><code>mapStore</code></td><td>Map viewport & filters</td><td><code>viewport</code>, <code>activeTimeFilter</code>, <code>visibleLayers</code>, <code>selectedPOI</code></td></tr>
+<tr><td><code>uiStore</code></td><td>UI preferences</td><td><code>darkMode</code>, <code>sidebarOpen</code>, <code>activeModal</code>, <code>toastQueue</code></td></tr>
+<tr><td><code>notificationStore</code></td><td>Notifications</td><td><code>unreadCount</code>, <code>toasts</code>, <code>addToast()</code>, <code>dismissToast()</code></td></tr>
+
+<h3>React Query (Server State)</h3>
+
+<p>All server data is managed via React Query with automatic caching, background refetch, and optimistic updates:</p>
+
+<pre><code>// Example: useTrips hook
+<p>export function useTrips() {</p>
+<p>return useQuery({</p>
+<p>queryKey: ['trips'],</p>
+<p>queryFn: () =&gt; tripService.getUserTrips(),</p>
+<p>staleTime: 5 <em> 60 </em> 1000,          // 5 min</p>
+<p>});</p>
+<p>}</p>
+
+<p>export function useCreateTrip() {</p>
+<p>const queryClient = useQueryClient();</p>
+<p>return useMutation({</p>
+<p>mutationFn: tripService.createTrip,</p>
+<p>onSuccess: () =&gt; queryClient.invalidateQueries({ queryKey: ['trips'] }),</p>
+<p>});</p>
+<p>}</p>
+
+<p>// Example: useItinerary hook</p>
+<p>export function useItinerary(tripId) {</p>
+<p>return useQuery({</p>
+<p>queryKey: ['itinerary', tripId],</p>
+<p>queryFn: () =&gt; itineraryService.getItineraryDays(tripId),</p>
+<p>enabled: !!tripId,</p>
+<p>staleTime: 30 * 1000,               // 30 sec (frequently updated by replans)</p>
+<p>});</p>
+<p>}</code></pre></p>
+
+<hr>
+
+<h2>WebSocket Integration</h2>
+
+<pre><code>// websocketService.js
+<p>import { Client } from '@stomp/stompjs';</p>
+<p>import SockJS from 'sockjs-client';</p>
+
+<p>class WebSocketService {</p>
+<p>constructor() {</p>
+<p>this.client = null;</p>
+<p>this.subscriptions = new Map();</p>
+<p>}</p>
+
+<p>connect(accessToken) {</p>
+<p>this.client = new Client({</p>
+<p>webSocketFactory: () =&gt; new SockJS(<code>${API_BASE}/ws</code>),</p>
+<p>connectHeaders: { Authorization: <code>Bearer ${accessToken}</code> },</p>
+<p>onConnect: () =&gt; this.onConnected(),</p>
+<p>onDisconnect: () =&gt; this.onDisconnected(),</p>
+<p>reconnectDelay: 5000,</p>
+<p>});</p>
+<p>this.client.activate();</p>
+<p>}</p>
+
+<p>subscribeToReplan(tripId, callback) {</p>
+<p>return this.subscribe(<code>/topic/itinerary/${tripId}/replan</code>, callback);</p>
+<p>}</p>
+
+<p>subscribeToBookingUpdates(userId, callback) {</p>
+<p>return this.subscribe(<code>/topic/booking/${userId}/updates</code>, callback);</p>
+<p>}</p>
+
+<p>subscribeToCrowdUpdates(city, callback) {</p>
+<p>return this.subscribe(<code>/topic/map/${city}/crowd</code>, callback);</p>
+<p>}</p>
+
+<p>subscribeToMessages(userId, callback) {</p>
+<p>return this.subscribe(<code>/queue/messages/${userId}</code>, callback);</p>
+<p>}</p>
+<p>}</p>
+
+<p>export default new WebSocketService();</code></pre></p>
+
+<hr>
+
+<h2>Responsive Layout (Bootstrap 5)</h2>
+
+<pre><code>┌──────────────────────────────────────────────────────────────┐
+<p>│  Navbar: Logo │ My Trips │ Explore │ Map │ [Avatar] │ 🔔 │ 🌙 │</p>
+<p>├──────────────────────────────────────────────────────────────┤</p>
+<p>│                                                              │</p>
+<p>│  Dashboard Layout (col-12):                                 │</p>
+<p>│                                                              │</p>
+<p>│  ┌──────────────────┐  ┌──────────────────────────────────┐ │</p>
+<p>│  │ Trip Overview     │  │ Live Itinerary Timeline          │ │</p>
+<p>│  │ (col-lg-4)       │  │ (col-lg-8)                       │ │</p>
+<p>│  │                   │  │                                  │ │</p>
+<p>│  │ Weather Widget    │  │  [Day 1] [Day 2] [Day 3] tabs   │ │</p>
+<p>│  │ Budget Gauge      │  │  ┌─────────────────────────┐    │ │</p>
+<p>│  │                   │  │  │ 9:00 AM  Fushimi Inari  │    │ │</p>
+<p>│  │                   │  │  │ 🚶 Walk • ¥0 • 2h       │    │ │</p>
+<p>│  │                   │  │  │ [LOCAL PICK] badge       │    │ │</p>
+<p>│  │                   │  │  ├─────────────────────────┤    │ │</p>
+<p>│  │                   │  │  │ 11:30 AM Ramen w/ Chef  │    │ │</p>
+<p>│  │                   │  │  │ 🚇 Metro • ¥260 • 1.5h  │    │ │</p>
+<p>│  └──────────────────┘  │  └─────────────────────────┘    │ │</p>
+<p>│                          └──────────────────────────────────┘ │</p>
+<p>│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────────────┐│</p>
+<p>│  │ Flights  │ │ Hotel    │ │ Budget   │ │ Local Events Feed ││</p>
+<p>│  │ (col-3)  │ │ (col-3)  │ │ (col-3)  │ │ (col-3)          ││</p>
+<p>│  └──────────┘ └──────────┘ └──────────┘ └──────────────────┘│</p>
+<p>│  ┌─────────────────────────┐ ┌────────────────────────────┐ │</p>
+<p>│  │ Notes &amp; Documents       │ │ Crowd Heatmap (mini-map)   │ │</p>
+<p>│  │ (col-6)                 │ │ (col-6)                    │ │</p>
+<p>│  └─────────────────────────┘ └────────────────────────────┘ │</p>
+<p>└──────────────────────────────────────────────────────────────┘</code></pre></p>
+
+<hr>
+
+<h2>Key UI Features</h2>
+
+<h3>Drag-and-Drop Itinerary (@dnd-kit)</h3>
+
+<pre><code>// ItineraryTimeline.jsx
+<p>import { DndContext, closestCenter } from '@dnd-kit/core';</p>
+<p>import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';</p>
+
+<p>function ItineraryTimeline({ daySlots, onReorder }) {</p>
+<p>const handleDragEnd = (event) =&gt; {</p>
+<p>const { active, over } = event;</p>
+<p>if (active.id !== over.id) {</p>
+<p>const newOrder = arrayMove(slotIds, oldIndex, newIndex);</p>
+<p>onReorder(newOrder); // calls PATCH /api/itinerary/{tripId}/days/{dayNumber}/slots/reorder</p>
+<p>}</p>
+<p>};</p>
+
+<p>return (</p>
+<p>&lt;DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd}&gt;</p>
+<p>&lt;SortableContext items={slotIds} strategy={verticalListSortingStrategy}&gt;</p>
+<p>{daySlots.map(slot =&gt; &lt;ActivityCard key={slot.slotId} slot={slot} /&gt;)}</p>
+<p>&lt;/SortableContext&gt;</p>
+<p>&lt;/DndContext&gt;</p>
+<p>);</p>
+<p>}</code></pre></p>
+
+<h3>Dark Mode (CSS Custom Properties)</h3>
+
+<pre><code>/<em> variables.css </em>/
+<p>:root {</p>
+<p>--bg-primary: #ffffff;</p>
+<p>--bg-secondary: #f8f9fa;</p>
+<p>--text-primary: #212529;</p>
+<p>--text-secondary: #6c757d;</p>
+<p>--accent: #0d6efd;</p>
+<p>--card-bg: #ffffff;</p>
+<p>--border: #dee2e6;</p>
+<p>--shadow: 0 2px 8px rgba(0,0,0,0.08);</p>
+<p>}</p>
+
+<p>[data-theme="dark"] {</p>
+<p>--bg-primary: #0d1117;</p>
+<p>--bg-secondary: #161b22;</p>
+<p>--text-primary: #e6edf3;</p>
+<p>--text-secondary: #8b949e;</p>
+<p>--accent: #58a6ff;</p>
+<p>--card-bg: #21262d;</p>
+<p>--border: #30363d;</p>
+<p>--shadow: 0 2px 8px rgba(0,0,0,0.3);</p>
+<p>}</code></pre></p>
+
+<h3>Replan Diff View</h3>
+
+<pre><code>// ReplanModal.jsx — shows side-by-side comparison
+<p>function ReplanModal({ diff, isOpen, onAccept, onDismiss }) {</p>
+<p>return (</p>
+<p>&lt;Modal show={isOpen} size="lg"&gt;</p>
+<p>&lt;Modal.Header&gt;</p>
+<p>&lt;h5&gt;⛈️ Storm Alert — Your day has been updated&lt;/h5&gt;</p>
+<p>&lt;/Modal.Header&gt;</p>
+<p>&lt;Modal.Body&gt;</p>
+<p>&lt;div className="row"&gt;</p>
+<p>&lt;div className="col-6"&gt;</p>
+<p>&lt;h6 className="text-danger"&gt;Removed&lt;/h6&gt;</p>
+<p>{diff.removed.map(slot =&gt; (</p>
+<p>&lt;div key={slot.slotId} className="slot-diff removed"&gt;</p>
+<p>&lt;s&gt;{slot.startTime} — {slot.title}&lt;/s&gt;</p>
+<p>&lt;/div&gt;</p>
+<p>))}</p>
+<p>&lt;/div&gt;</p>
+<p>&lt;div className="col-6"&gt;</p>
+<p>&lt;h6 className="text-success"&gt;Added&lt;/h6&gt;</p>
+<p>{diff.added.map(slot =&gt; (</p>
+<p>&lt;div key={slot.slotId} className="slot-diff added"&gt;</p>
+<p>{slot.startTime} — {slot.title} ✨</p>
+<p>&lt;/div&gt;</p>
+<p>))}</p>
+<p>&lt;/div&gt;</p>
+<p>&lt;/div&gt;</p>
+<p>&lt;/Modal.Body&gt;</p>
+<p>&lt;Modal.Footer&gt;</p>
+<p>&lt;Button variant="outline-secondary" onClick={onDismiss}&gt;Keep Original&lt;/Button&gt;</p>
+<p>&lt;Button variant="primary" onClick={onAccept}&gt;Accept Changes&lt;/Button&gt;</p>
+<p>&lt;/Modal.Footer&gt;</p>
+<p>&lt;/Modal&gt;</p>
+<p>);</p>
+<p>}</code></pre></p>
+
+<footer style="margin-top:3rem;padding-top:1rem;border-top:1px solid #e5e7eb;color:#9ca3af;font-size:0.8rem;text-align:center;">LocalLens Architecture Documentation - Generated 2026-03-14</footer>
+</body></html>

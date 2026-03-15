@@ -1,0 +1,528 @@
+<!DOCTYPE html><html><head><title></title><meta charset="utf-8"><style>* {
+	box-sizing: border-box;
+}
+
+html {
+	font-size: 100%;
+}
+
+body {
+	font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell',
+		'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+	line-height: 1.6;
+	font-size: 0.6875em; /* 11 pt */
+	color: #111;
+	margin: 0;
+}
+
+body > :first-child {
+	padding-top: 0;
+	margin-top: 0;
+}
+
+body > :last-child {
+	margin-bottom: 0;
+	padding-bottom: 0;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+	margin: 0;
+	padding: 0.5em 0 0.25em;
+}
+
+h5,
+h6 {
+	padding: 0;
+}
+
+h5 {
+	font-size: 1em;
+}
+
+h6 {
+	font-size: 0.875em;
+	text-transform: uppercase;
+}
+
+p {
+	margin: 0.25em 0 1em;
+}
+
+blockquote {
+	margin: 0.5em 0 1em;
+	padding-left: 0.5em;
+	padding-right: 1em;
+	border-left: 4px solid gainsboro;
+	font-style: italic;
+}
+
+ul,
+ol {
+	margin: 0;
+	margin-left: 1em;
+	padding: 0 1.5em 0.5em;
+}
+
+pre {
+	white-space: pre-wrap;
+}
+
+h1 code,
+h2 code,
+h3 code,
+h4 code,
+h5 code,
+h6 code,
+p code,
+li code,
+pre code {
+	background-color: #f8f8f8;
+	padding: 0.1em 0.375em;
+	border: 1px solid #f8f8f8;
+	border-radius: 0.25em;
+	font-family: monospace;
+	font-size: 1.2em;
+}
+
+pre code {
+	display: block;
+	padding: 0.5em;
+}
+
+.page-break {
+	page-break-after: always;
+}
+
+img {
+	max-width: 100%;
+	margin: 1em 0;
+}
+
+table {
+	border-spacing: 0;
+	border-collapse: collapse;
+	display: block;
+	margin: 0 0 1em;
+	width: 100%;
+	overflow: auto;
+}
+
+table th,
+table td {
+	padding: 0.5em 1em;
+	border: 1px solid gainsboro;
+}
+
+table th {
+	font-weight: 600;
+}
+
+table tr {
+	background-color: white;
+	border-top: 1px solid gainsboro;
+}
+
+table tr:nth-child(2n) {
+	background-color: whitesmoke;
+}
+/*# sourceURL=C:\Users\aaadh\AppData\Roaming\npm\node_modules\md-to-pdf\markdown.css*/</style><style>pre code.hljs {
+  display: block;
+  overflow-x: auto;
+  padding: 1em
+}
+code.hljs {
+  padding: 3px 5px
+}
+/*!
+  Theme: GitHub
+  Description: Light theme as seen on github.com
+  Author: github.com
+  Maintainer: @Hirse
+  Updated: 2021-05-15
+
+  Outdated base version: https://github.com/primer/github-syntax-light
+  Current colors taken from GitHub's CSS
+*/
+.hljs {
+  color: #24292e;
+  background: #ffffff
+}
+.hljs-doctag,
+.hljs-keyword,
+.hljs-meta .hljs-keyword,
+.hljs-template-tag,
+.hljs-template-variable,
+.hljs-type,
+.hljs-variable.language_ {
+  /* prettylights-syntax-keyword */
+  color: #d73a49
+}
+.hljs-title,
+.hljs-title.class_,
+.hljs-title.class_.inherited__,
+.hljs-title.function_ {
+  /* prettylights-syntax-entity */
+  color: #6f42c1
+}
+.hljs-attr,
+.hljs-attribute,
+.hljs-literal,
+.hljs-meta,
+.hljs-number,
+.hljs-operator,
+.hljs-variable,
+.hljs-selector-attr,
+.hljs-selector-class,
+.hljs-selector-id {
+  /* prettylights-syntax-constant */
+  color: #005cc5
+}
+.hljs-regexp,
+.hljs-string,
+.hljs-meta .hljs-string {
+  /* prettylights-syntax-string */
+  color: #032f62
+}
+.hljs-built_in,
+.hljs-symbol {
+  /* prettylights-syntax-variable */
+  color: #e36209
+}
+.hljs-comment,
+.hljs-code,
+.hljs-formula {
+  /* prettylights-syntax-comment */
+  color: #6a737d
+}
+.hljs-name,
+.hljs-quote,
+.hljs-selector-tag,
+.hljs-selector-pseudo {
+  /* prettylights-syntax-entity-tag */
+  color: #22863a
+}
+.hljs-subst {
+  /* prettylights-syntax-storage-modifier-import */
+  color: #24292e
+}
+.hljs-section {
+  /* prettylights-syntax-markup-heading */
+  color: #005cc5;
+  font-weight: bold
+}
+.hljs-bullet {
+  /* prettylights-syntax-markup-list */
+  color: #735c0f
+}
+.hljs-emphasis {
+  /* prettylights-syntax-markup-italic */
+  color: #24292e;
+  font-style: italic
+}
+.hljs-strong {
+  /* prettylights-syntax-markup-bold */
+  color: #24292e;
+  font-weight: bold
+}
+.hljs-addition {
+  /* prettylights-syntax-markup-inserted */
+  color: #22863a;
+  background-color: #f0fff4
+}
+.hljs-deletion {
+  /* prettylights-syntax-markup-deleted */
+  color: #b31d28;
+  background-color: #ffeef0
+}
+.hljs-char.escape_,
+.hljs-link,
+.hljs-params,
+.hljs-property,
+.hljs-punctuation,
+.hljs-tag {
+  /* purposely ignored */
+  
+}/*# sourceURL=C:\Users\aaadh\AppData\Roaming\npm\node_modules\md-to-pdf\node_modules\highlight.js\styles\github.css*/</style></head>
+	<body class="">
+		<h1 id="locallens--system-architecture-overview">LocalLens — System Architecture Overview</h1>
+<h2 id="platform-vision">Platform Vision</h2>
+<p><strong>LocalLens</strong> is a two-sided hyperlocal travel marketplace that replaces the fragmented stack of Google Maps + Booking.com + TripAdvisor + Notes + Flight apps with a single AI-powered dashboard. It surfaces hyperlocal experiences from verified local creators and dynamically replans itineraries in real-time based on weather, traffic, and venue status.</p>
+<hr>
+<h2 id="high-level-architecture-diagram">High-Level Architecture Diagram</h2>
+<pre><code class="hljs mermaid">graph TB
+    subgraph "Client Layer"
+        RWA["React 18 SPA&lt;br/&gt;(Bootstrap 5 + Deck.gl)"]
+        PWA["PWA / Mobile"]
+    end
+
+    subgraph "API Gateway &amp; Auth"
+        GW["Spring Cloud Gateway"]
+        AUTH["AuthService&lt;br/&gt;(JWT + OAuth2)"]
+    end
+
+    subgraph "Core Services (Spring Boot 3.x — Modular Monolith)"
+        TRIP["TripService"]
+        AI["ItineraryAIService"]
+        REPLAN["ReplanningService"]
+        MKT["MarketplaceService"]
+        PAY["PaymentService"]
+        MAP["MapService"]
+        EVT["EventAggregatorService"]
+        NOTIF["NotificationService"]
+        ANALYTICS["AnalyticsService"]
+    end
+
+    subgraph "Real-Time Layer"
+        WS["WebSocket Broker&lt;br/&gt;(STOMP/SockJS)"]
+        FCM["Firebase Cloud Messaging"]
+    end
+
+    subgraph "Data Layer"
+        MONGO[("MongoDB Atlas&lt;br/&gt;(Primary Store)")]
+        REDIS[("Redis&lt;br/&gt;(Cache + Pub/Sub)")]
+    end
+
+    subgraph "External APIs"
+        CLAUDE["Claude API&lt;br/&gt;(Anthropic)"]
+        OWM["OpenWeatherMap"]
+        TOMTOM["TomTom Traffic"]
+        GPLACES["Google Places"]
+        EBRITE["Eventbrite API"]
+        STRIPE["Stripe Connect"]
+        SGRID["SendGrid"]
+        MAPBOX["Mapbox / MapLibre Tiles"]
+    end
+
+    RWA --&gt;|HTTPS + WS| GW
+    PWA --&gt;|HTTPS + WS| GW
+    GW --&gt; AUTH
+    GW --&gt; TRIP
+    GW --&gt; AI
+    GW --&gt; MKT
+    GW --&gt; MAP
+    GW --&gt; EVT
+    GW --&gt; NOTIF
+
+    TRIP --&gt; MONGO
+    AI --&gt; CLAUDE
+    AI --&gt; MONGO
+    REPLAN --&gt; OWM
+    REPLAN --&gt; TOMTOM
+    REPLAN --&gt; GPLACES
+    REPLAN --&gt; AI
+    REPLAN --&gt; WS
+    MKT --&gt; MONGO
+    MKT --&gt; PAY
+    PAY --&gt; STRIPE
+    MAP --&gt; MONGO
+    MAP --&gt; MAPBOX
+    MAP --&gt; TOMTOM
+    EVT --&gt; EBRITE
+    EVT --&gt; MONGO
+    NOTIF --&gt; WS
+    NOTIF --&gt; SGRID
+    NOTIF --&gt; FCM
+    ANALYTICS --&gt; MONGO
+    ANALYTICS --&gt; REDIS
+
+    TRIP --&gt; REDIS
+    MAP --&gt; REDIS
+</code></pre>
+<hr>
+<h2 id="service-communication-pattern">Service Communication Pattern</h2>
+<pre><code class="hljs mermaid">sequenceDiagram
+    participant U as React Client
+    participant GW as API Gateway
+    participant TS as TripService
+    participant AIS as ItineraryAIService
+    participant MS as MarketplaceService
+    participant Claude as Claude API
+    participant WS as WebSocket Broker
+    participant DB as MongoDB
+
+    U-&gt;&gt;GW: POST /api/trips (trip form data)
+    GW-&gt;&gt;TS: Create trip document
+    TS-&gt;&gt;DB: Insert trip
+    TS-&gt;&gt;AIS: Generate itinerary request
+    AIS-&gt;&gt;MS: Fetch matching hyperlocal experiences
+    MS-&gt;&gt;DB: Query experiences by destination/dates
+    MS--&gt;&gt;AIS: Ranked experience list
+    AIS-&gt;&gt;Claude: Prompt with profile + experiences + events
+    Claude--&gt;&gt;AIS: Structured itinerary JSON
+    AIS-&gt;&gt;DB: Store parsed itinerary
+    AIS-&gt;&gt;WS: Publish ITINERARY_READY event
+    WS--&gt;&gt;U: Push itinerary to client
+    U-&gt;&gt;U: Render full dashboard
+</code></pre>
+<hr>
+<h2 id="dynamic-replanning-flow">Dynamic Replanning Flow</h2>
+<pre><code class="hljs mermaid">sequenceDiagram
+    participant SCHED as WeatherScheduler
+    participant OWM as OpenWeatherMap API
+    participant RS as ReplanningService
+    participant DB as MongoDB
+    participant AIS as ItineraryAIService
+    participant Claude as Claude API
+    participant WS as WebSocket Broker
+    participant U as React Client
+
+    SCHED-&gt;&gt;OWM: Poll weather for active trip destinations
+    OWM--&gt;&gt;SCHED: Storm alert for Kyoto
+    SCHED-&gt;&gt;RS: Trigger replan (tripId, reason=WEATHER)
+    RS-&gt;&gt;DB: Fetch affected itinerary days
+    RS-&gt;&gt;AIS: Request replan with weather context
+    AIS-&gt;&gt;Claude: Replan prompt (current plan + weather + alternatives)
+    Claude--&gt;&gt;AIS: Updated day plan JSON
+    AIS--&gt;&gt;RS: Parsed new itinerary slots
+    RS-&gt;&gt;RS: Compute diff (old vs new)
+    RS-&gt;&gt;DB: Store replan log with reason code
+    RS-&gt;&gt;DB: Update itinerary
+    RS-&gt;&gt;WS: Push REPLAN_TRIGGERED + diff payload
+    WS--&gt;&gt;U: Toast: "Storm Alert — Day 3 updated"
+    U-&gt;&gt;U: Show diff modal (old vs new side-by-side)
+</code></pre>
+<hr>
+<h2 id="deployment-architecture">Deployment Architecture</h2>
+<pre><code class="hljs mermaid">graph LR
+    subgraph "GitHub"
+        REPO["Monorepo"]
+        GHA["GitHub Actions CI/CD"]
+    end
+
+    subgraph "Container Registry"
+        GHCR["GitHub Container Registry"]
+    end
+
+    subgraph "Production (Railway / Render)"
+        FE["Frontend Container&lt;br/&gt;(nginx + React build)"]
+        BE["Backend Container&lt;br/&gt;(Spring Boot JAR)"]
+        REDIS_P["Redis Container"]
+    end
+
+    subgraph "Managed Services"
+        ATLAS["MongoDB Atlas"]
+        CF["Cloudflare CDN"]
+    end
+
+    REPO --&gt; GHA
+    GHA --&gt; GHCR
+    GHCR --&gt; FE
+    GHCR --&gt; BE
+    GHCR --&gt; REDIS_P
+    FE --&gt; CF
+    BE --&gt; ATLAS
+    BE --&gt; REDIS_P
+</code></pre>
+<hr>
+<h2 id="technology-decision-matrix">Technology Decision Matrix</h2>
+<table>
+<thead>
+<tr>
+<th>Layer</th>
+<th>Choice</th>
+<th>Rationale</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Frontend</strong></td>
+<td>React 18 + Bootstrap 5</td>
+<td>Component ecosystem + responsive grid, SSR-ready with Next.js migration path</td>
+</tr>
+<tr>
+<td><strong>State</strong></td>
+<td>Zustand + React Query</td>
+<td>Lightweight client state + automatic server-state caching/invalidation</td>
+</tr>
+<tr>
+<td><strong>Maps</strong></td>
+<td>Deck.gl + MapLibre GL JS</td>
+<td>Open-source 3D visualization, no Mapbox vendor lock-in, WebGL-powered</td>
+</tr>
+<tr>
+<td><strong>Backend</strong></td>
+<td>Spring Boot 3.x (Java 17)</td>
+<td>Enterprise-grade, excellent MongoDB support, built-in WebSocket/STOMP</td>
+</tr>
+<tr>
+<td><strong>Database</strong></td>
+<td>MongoDB Atlas</td>
+<td>Flexible schemas, GeoJSON native, GridFS for documents, TTL indexes</td>
+</tr>
+<tr>
+<td><strong>Cache</strong></td>
+<td>Redis</td>
+<td>Sub-ms reads for heatmap data, session store, pub/sub for cross-service events</td>
+</tr>
+<tr>
+<td><strong>AI</strong></td>
+<td>Claude API (Anthropic)</td>
+<td>Superior structured output, large context window for complex itineraries</td>
+</tr>
+<tr>
+<td><strong>Payments</strong></td>
+<td>Stripe Connect</td>
+<td>Two-sided marketplace payouts, managed KYC, configurable commission</td>
+</tr>
+<tr>
+<td><strong>Email</strong></td>
+<td>SendGrid</td>
+<td>Transactional email at scale, template engine, delivery tracking</td>
+</tr>
+<tr>
+<td><strong>Real-time</strong></td>
+<td>STOMP/SockJS + Firebase</td>
+<td>WebSocket for web, FCM for mobile push, fallback to long-polling</td>
+</tr>
+<tr>
+<td><strong>CI/CD</strong></td>
+<td>GitHub Actions + Docker</td>
+<td>Industry standard, container-native, free tier for open-source</td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="security-architecture">Security Architecture</h2>
+<table>
+<thead>
+<tr>
+<th>Concern</th>
+<th>Implementation</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Authentication</strong></td>
+<td>Spring Security + JWT (access 15min / refresh 7d) + OAuth2 (Google, Apple)</td>
+</tr>
+<tr>
+<td><strong>Authorization</strong></td>
+<td>Role-based: <code>TRAVELER</code>, <code>CREATOR</code>, <code>ADMIN</code> with method-level <code>@PreAuthorize</code></td>
+</tr>
+<tr>
+<td><strong>API Security</strong></td>
+<td>Rate limiting (Bucket4j), CORS whitelist, CSRF for non-API routes</td>
+</tr>
+<tr>
+<td><strong>Data Encryption</strong></td>
+<td>TLS 1.3 in transit, MongoDB field-level encryption for PII</td>
+</tr>
+<tr>
+<td><strong>Secrets</strong></td>
+<td>Spring Cloud Vault or environment variables (never in code)</td>
+</tr>
+<tr>
+<td><strong>Input Validation</strong></td>
+<td>Bean Validation (JSR-380) on all DTOs, sanitized before Claude prompts</td>
+</tr>
+<tr>
+<td><strong>File Upload</strong></td>
+<td>MongoDB GridFS with virus scanning, max 10MB, allowed MIME types only</td>
+</tr>
+</tbody></table>
+
+	
+
+</body></html>

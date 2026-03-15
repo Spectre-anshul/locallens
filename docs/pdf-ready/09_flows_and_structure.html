@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html><head>
+<meta charset="UTF-8">
+<title>LocalLens - 09 flows and structure</title>
+<style>body { font-family: Segoe UI, -apple-system, sans-serif; max-width: 900px; margin: 2rem auto; padding: 0 2rem; color: #1a1a2e; line-height: 1.7; }
+h1 { color: #4f46e5; border-bottom: 3px solid #4f46e5; padding-bottom: 0.5rem; margin-top: 2rem; }
+h2 { color: #6366f1; border-bottom: 1px solid #e5e7eb; padding-bottom: 0.3rem; margin-top: 1.5rem; }
+h3 { color: #7c3aed; margin-top: 1.2rem; }
+code { background: #f3f4f6; padding: 2px 6px; border-radius: 4px; font-size: 0.9em; }
+pre { background: #1e1e2e; color: #cdd6f4; padding: 1rem; border-radius: 8px; overflow-x: auto; font-size: 0.85rem; }
+pre code { background: none; padding: 0; color: inherit; }
+table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
+th, td { border: 1px solid #d1d5db; padding: 0.5rem 0.75rem; text-align: left; font-size: 0.9rem; }
+th { background: #f3f4f6; font-weight: 600; }
+tr:nth-child(even) { background: #f9fafb; }
+blockquote { border-left: 4px solid #4f46e5; padding-left: 1rem; color: #6b7280; margin: 1rem 0; }
+hr { border: none; border-top: 2px solid #e5e7eb; margin: 2rem 0; }
+@media print { body { max-width: 100%; margin: 0; } pre { white-space: pre-wrap; } }</style>
+</head><body>
+<h1>LocalLens — End-to-End Flows & Project Structure</h1>
+
+<hr>
+
+<h2>End-to-End Flow: Scenario A — New Trip Creation</h2>
+
+<pre><code>sequenceDiagram
+<p>participant U as User (React)</p>
+<p>participant TW as TripWizard</p>
+<p>participant API as Axios Client</p>
+<p>participant GW as Backend (Gateway)</p>
+<p>participant AS as AuthService</p>
+<p>participant TS as TripService</p>
+<p>participant AIS as ItineraryAIService</p>
+<p>participant MS as MarketplaceService</p>
+<p>participant ES as EventAggregatorService</p>
+<p>participant Claude as Claude API</p>
+<p>participant DB as MongoDB</p>
+<p>participant WS as WebSocket Broker</p>
+<p>participant RQ as React Query</p>
+
+<p>Note over U,TW: Step 1: User fills trip wizard</p>
+<p>U-&gt;&gt;TW: Fill 4-step form (destination, dates, budget, interests, style, group)</p>
+<p>TW-&gt;&gt;TW: Client-side validation</p>
+<p>TW-&gt;&gt;API: POST /api/trips (trip payload)</p>
+<p>API-&gt;&gt;GW: Forward with JWT</p>
+<p>GW-&gt;&gt;AS: Validate JWT token</p>
+<p>AS--&gt;&gt;GW: User authenticated (TRAVELER role)</p>
+<p>GW-&gt;&gt;TS: createTrip(userId, request)</p>
+<p>TS-&gt;&gt;DB: Insert trip document (status: DRAFT)</p>
+<p>TS--&gt;&gt;GW: Return trip with ID</p>
+<p>GW--&gt;&gt;API: 201 Created { tripId, status: DRAFT }</p>
+<p>API--&gt;&gt;TW: Trip created</p>
+
+<p>Note over TW,AIS: Step 2: Trigger itinerary generation</p>
+<p>TW-&gt;&gt;API: POST /api/itinerary/generate { tripId }</p>
+<p>API-&gt;&gt;GW: Forward</p>
+<p>GW-&gt;&gt;AIS: generateItinerary(tripId)</p>
+<p>AIS--&gt;&gt;GW: 202 Accepted { status: GENERATING }</p>
+<p>GW--&gt;&gt;API: 202 Accepted</p>
+<p>API--&gt;&gt;TW: Show "Generating your itinerary..." spinner</p>
+
+<p>Note over AIS,Claude: Step 3: AI itinerary generation (async)</p>
+<p>AIS-&gt;&gt;DB: Fetch trip document</p>
+<p>AIS-&gt;&gt;MS: ExperienceMatchingService.match(profile, destination, dates)</p>
+<p>MS-&gt;&gt;DB: Query experiences (city, dates, hyperlocal=true)</p>
+<p>MS-&gt;&gt;MS: Score &amp; rank by interest, budget, style, rating</p>
+<p>MS--&gt;&gt;AIS: Top 15 ranked experiences</p>
+
+<p>AIS-&gt;&gt;ES: getEventsForItinerary(city, startDate, endDate)</p>
+<p>ES-&gt;&gt;DB: Query events by city + date range</p>
+<p>ES--&gt;&gt;AIS: Matching events list</p>
+
+<p>AIS-&gt;&gt;AIS: buildSystemPrompt(trip, experiences, events)</p>
+<p>AIS-&gt;&gt;AIS: buildGenerationPrompt(request)</p>
+<p>AIS-&gt;&gt;Claude: messages.create(system + user prompt)</p>
+<p>Note right of Claude: ~10-20 seconds</p>
+<p>Claude--&gt;&gt;AIS: Structured JSON response</p>
+
+<p>AIS-&gt;&gt;AIS: parseItineraryResponse(JSON, tripId)</p>
+<p>AIS-&gt;&gt;DB: Insert itinerary_days documents (7 days)</p>
+<p>AIS-&gt;&gt;DB: Update trip (status: PLANNED, itineraryVersion: 1)</p>
+
+<p>Note over AIS,U: Step 4: Push result to client</p>
+<p>AIS-&gt;&gt;WS: Publish to /topic/itinerary/{tripId}/replan</p>
+<p>Note right of WS: Payload: { type: ITINERARY_READY, tripId }</p>
+<p>WS--&gt;&gt;U: WebSocket message received</p>
+
+<p>Note over U,RQ: Step 5: Render dashboard</p>
+<p>U-&gt;&gt;U: useReplan hook receives ITINERARY_READY</p>
+<p>U-&gt;&gt;RQ: Invalidate ['itinerary', tripId] query</p>
+<p>RQ-&gt;&gt;API: GET /api/itinerary/{tripId}/days</p>
+<p>API-&gt;&gt;GW: Forward</p>
+<p>GW-&gt;&gt;AIS: getItineraryDays(tripId)</p>
+<p>AIS-&gt;&gt;DB: Fetch all itinerary_days for tripId</p>
+<p>AIS--&gt;&gt;GW: 7 day documents with slots</p>
+<p>GW--&gt;&gt;API: ItineraryDayResponse[]</p>
+<p>API--&gt;&gt;RQ: Cache result</p>
+<p>RQ--&gt;&gt;U: Data available</p>
+
+<p>U-&gt;&gt;U: Navigate to DashboardPage</p>
+<p>U-&gt;&gt;U: Render TripOverviewCard + ItineraryTimeline + Map</p>
+<p>Note over U: Dashboard shows full itinerary with\n[LOCAL PICK] badges on hyperlocal activities</code></pre></p>
+
+<h3>Technical Details — Scenario A</h3>
+
+<tr><td>Step</td><td>Latency</td><td>Notes</td></tr>
+<tr><td>Trip creation (POST)</td><td>~100ms</td><td>Simple MongoDB insert</td></tr>
+<tr><td>Generate trigger (POST)</td><td>~50ms</td><td>Returns 202 immediately, spawns async task</td></tr>
+<tr><td>Experience matching</td><td>~200ms</td><td>MongoDB geo-query + in-memory scoring</td></tr>
+<tr><td>Event fetching</td><td>~100ms</td><td>MongoDB query, Redis-cached if available</td></tr>
+<tr><td>Claude API call</td><td>10–20s</td><td>Main bottleneck, depends on trip length</td></tr>
+<tr><td>Parse + store</td><td>~300ms</td><td>JSON parse + 7 MongoDB inserts</td></tr>
+<tr><td>WebSocket push</td><td>~10ms</td><td>STOMP message to subscribed client</td></tr>
+<tr><td>Dashboard render</td><td>~500ms</td><td>React Query fetch + Deck.gl map init</td></tr>
+<tr><td><strong>Total</strong></td><td><strong>~12–22s</strong></td><td>User sees spinner, then full dashboard</td></tr>
+
+<hr>
+
+<h2>End-to-End Flow: Scenario B — Dynamic Replan</h2>
+
+<pre><code>sequenceDiagram
+<p>participant SCHED as ReplanningScheduler</p>
+<p>participant OWM as OpenWeatherMap</p>
+<p>participant RS as ReplanningService</p>
+<p>participant DB as MongoDB</p>
+<p>participant AIS as ItineraryAIService</p>
+<p>participant MS as MarketplaceService</p>
+<p>participant Claude as Claude API</p>
+<p>participant WS as WebSocket Broker</p>
+<p>participant U as React Client</p>
+
+<p>Note over SCHED,OWM: Step 1: Scheduled weather check (every 30 min)</p>
+<p>SCHED-&gt;&gt;SCHED: @Scheduled(fixedRate=1800000)</p>
+<p>SCHED-&gt;&gt;DB: Query trips WHERE status=ACTIVE AND startDate&lt;=today AND endDate&gt;=today</p>
+<p>DB--&gt;&gt;SCHED: Active trip list (e.g., 25 trips)</p>
+
+<p>loop For each active trip destination (deduplicated)</p>
+<p>SCHED-&gt;&gt;OWM: GET /data/2.5/forecast?lat={lat}&amp;lon={lng}</p>
+<p>OWM--&gt;&gt;SCHED: Weather forecast (5-day, 3-hour intervals)</p>
+<p>SCHED-&gt;&gt;SCHED: isAdverseWeather(forecast)?</p>
+<p>end</p>
+
+<p>Note over SCHED,RS: Step 2: Trigger replan for affected trips</p>
+<p>SCHED-&gt;&gt;RS: triggerReplan(tripId="trip-42", dayNumber=3, trigger={WEATHER, "Heavy rain 2PM-6PM"})</p>
+
+<p>RS-&gt;&gt;DB: Fetch itinerary_days for trip-42, day 3</p>
+<p>RS-&gt;&gt;RS: Identify affected slots (outdoor activities during 2PM-6PM)</p>
+<p>Note right of RS: Slots: "Bamboo Grove Walk" (14:00),\n"Monkey Park" (14:30)</p>
+
+<p>Note over RS,Claude: Step 3: Claude replan</p>
+<p>RS-&gt;&gt;MS: Get available alternative experiences (indoor, same area)</p>
+<p>MS-&gt;&gt;DB: Query indoor experiences in Kyoto, available on this date</p>
+<p>MS--&gt;&gt;RS: Alternative list</p>
+
+<p>RS-&gt;&gt;AIS: replanDay(tripId, dayNumber=3, context)</p>
+<p>AIS-&gt;&gt;AIS: buildReplanPrompt(currentDay, weatherContext, alternatives)</p>
+<p>AIS-&gt;&gt;Claude: messages.create(replan prompt)</p>
+<p>Note right of Claude: ~5-10 seconds</p>
+<p>Claude--&gt;&gt;AIS: Updated day JSON + replan summary</p>
+
+<p>AIS-&gt;&gt;AIS: parseResponse → new ItineraryDayDocument</p>
+<p>AIS--&gt;&gt;RS: ReplanResult (updated day + summary)</p>
+
+<p>Note over RS,DB: Step 4: Diff, log, store</p>
+<p>RS-&gt;&gt;RS: computeDiff(oldDay, newDay)</p>
+<p>Note right of RS: Diff: removed "Bamboo Grove",\nadded "Matcha Ceremony (indoor)"</p>
+<p>RS-&gt;&gt;DB: Insert replan_log { tripId, reason: WEATHER, diff, tokens, timing }</p>
+<p>RS-&gt;&gt;DB: Update itinerary_day (version: 2, new slots)</p>
+<p>RS-&gt;&gt;DB: Update trip.itineraryVersion = 2</p>
+
+<p>Note over RS,U: Step 5: Push to client</p>
+<p>RS-&gt;&gt;WS: Send to /topic/itinerary/trip-42/replan</p>
+<p>Note right of WS: Payload: {type: REPLAN_TRIGGERED, diff, reason}</p>
+
+<p>WS--&gt;&gt;U: Message received by useReplan hook</p>
+<p>U-&gt;&gt;U: Show ReplanToast: "⛈️ Storm Alert: Day 3 updated"</p>
+<p>U-&gt;&gt;U: Open ReplanModal with side-by-side diff</p>
+
+<p>Note over U: User reviews changes</p>
+<p>alt User Accepts</p>
+<p>U-&gt;&gt;U: Click "Accept Changes"</p>
+<p>U-&gt;&gt;U: POST /api/itinerary/trip-42/replan/accept</p>
+<p>U-&gt;&gt;U: React Query invalidates &amp; refetches itinerary</p>
+<p>U-&gt;&gt;U: Dashboard shows updated Day 3</p>
+<p>else User Rejects</p>
+<p>U-&gt;&gt;U: Click "Keep Original"</p>
+<p>U-&gt;&gt;U: POST /api/itinerary/trip-42/replan/reject</p>
+<p>U-&gt;&gt;U: UI restores original plan</p>
+<p>end</code></pre></p>
+
+<hr>
+
+<h2>Complete Project Structure</h2>
+
+<pre><code>locallens/                                    # Monorepo root
+<p>├── .github/</p>
+<p>│   └── workflows/</p>
+<p>│       └── ci-cd.yml                         # GitHub Actions pipeline</p>
+<p>├── docker/</p>
+<p>│   └── mongo-init.js                         # MongoDB initialization script</p>
+<p>├── docker-compose.yml                        # Local development</p>
+<p>├── docker-compose.prod.yml                   # Production overrides</p>
+<p>├── .env.example                              # Environment variables template</p>
+<p>├── README.md                                 # Project overview</p>
+<p>│</p>
+<p>├── locallens-backend/                        # Spring Boot Application</p>
+<p>│   ├── Dockerfile</p>
+<p>│   ├── build.gradle                          # Gradle build config</p>
+<p>│   ├── settings.gradle</p>
+<p>│   ├── gradlew / gradlew.bat</p>
+<p>│   ├── gradle/</p>
+<p>│   │   └── wrapper/</p>
+<p>│   └── src/</p>
+<p>│       ├── main/</p>
+<p>│       │   ├── java/com/locallens/</p>
+<p>│       │   │   ├── LocalLensApplication.java</p>
+<p>│       │   │   │</p>
+<p>│       │   │   ├── config/</p>
+<p>│       │   │   │   ├── SecurityConfig.java</p>
+<p>│       │   │   │   ├── WebSocketConfig.java</p>
+<p>│       │   │   │   ├── MongoConfig.java</p>
+<p>│       │   │   │   ├── RedisConfig.java</p>
+<p>│       │   │   │   ├── StripeConfig.java</p>
+<p>│       │   │   │   ├── CorsConfig.java</p>
+<p>│       │   │   │   └── SwaggerConfig.java</p>
+<p>│       │   │   │</p>
+<p>│       │   │   ├── common/</p>
+<p>│       │   │   │   ├── dto/</p>
+<p>│       │   │   │   │   ├── ApiResponse.java</p>
+<p>│       │   │   │   │   ├── PageResponse.java</p>
+<p>│       │   │   │   │   └── GeoPoint.java</p>
+<p>│       │   │   │   ├── exception/</p>
+<p>│       │   │   │   │   ├── GlobalExceptionHandler.java</p>
+<p>│       │   │   │   │   ├── ResourceNotFoundException.java</p>
+<p>│       │   │   │   │   ├── UnauthorizedException.java</p>
+<p>│       │   │   │   │   └── BadRequestException.java</p>
+<p>│       │   │   │   └── util/</p>
+<p>│       │   │   │       ├── JwtTokenProvider.java</p>
+<p>│       │   │   │       └── CurrencyUtils.java</p>
+<p>│       │   │   │</p>
+<p>│       │   │   ├── auth/</p>
+<p>│       │   │   │   ├── controller/AuthController.java</p>
+<p>│       │   │   │   ├── service/AuthService.java</p>
+<p>│       │   │   │   ├── service/OAuth2Service.java</p>
+<p>│       │   │   │   ├── security/JwtAuthenticationFilter.java</p>
+<p>│       │   │   │   ├── security/UserPrincipal.java</p>
+<p>│       │   │   │   ├── dto/RegisterRequest.java</p>
+<p>│       │   │   │   ├── dto/LoginRequest.java</p>
+<p>│       │   │   │   ├── dto/AuthResponse.java</p>
+<p>│       │   │   │   ├── dto/UserProfileResponse.java</p>
+<p>│       │   │   │   ├── repository/UserRepository.java</p>
+<p>│       │   │   │   └── model/UserDocument.java</p>
+<p>│       │   │   │</p>
+<p>│       │   │   ├── trip/</p>
+<p>│       │   │   │   ├── controller/TripController.java</p>
+<p>│       │   │   │   ├── service/TripService.java</p>
+<p>│       │   │   │   ├── dto/ (CreateTripRequest, TripResponse, ...)</p>
+<p>│       │   │   │   ├── repository/TripRepository.java</p>
+<p>│       │   │   │   └── model/TripDocument.java</p>
+<p>│       │   │   │</p>
+<p>│       │   │   ├── itinerary/</p>
+<p>│       │   │   │   ├── controller/ItineraryController.java</p>
+<p>│       │   │   │   ├── service/ItineraryAIService.java</p>
+<p>│       │   │   │   ├── service/ClaudeApiClient.java</p>
+<p>│       │   │   │   ├── service/PromptBuilder.java</p>
+<p>│       │   │   │   ├── service/ItineraryParser.java</p>
+<p>│       │   │   │   ├── dto/ (GenerateRequest, ItineraryDayResponse, ...)</p>
+<p>│       │   │   │   ├── repository/ItineraryDayRepository.java</p>
+<p>│       │   │   │   └── model/ItineraryDayDocument.java</p>
+<p>│       │   │   │</p>
+<p>│       │   │   ├── replan/</p>
+<p>│       │   │   │   ├── service/ReplanningService.java</p>
+<p>│       │   │   │   ├── service/ReplanningScheduler.java</p>
+<p>│       │   │   │   ├── client/WeatherClient.java</p>
+<p>│       │   │   │   ├── client/TrafficClient.java</p>
+<p>│       │   │   │   ├── client/VenueStatusClient.java</p>
+<p>│       │   │   │   ├── dto/ (ReplanContext, DiffPayload, ...)</p>
+<p>│       │   │   │   ├── repository/ReplanLogRepository.java</p>
+<p>│       │   │   │   └── model/ReplanLogDocument.java</p>
+<p>│       │   │   │</p>
+<p>│       │   │   ├── marketplace/</p>
+<p>│       │   │   │   ├── controller/ExperienceController.java</p>
+<p>│       │   │   │   ├── controller/CreatorController.java</p>
+<p>│       │   │   │   ├── service/MarketplaceService.java</p>
+<p>│       │   │   │   ├── service/ExperienceMatchingService.java</p>
+<p>│       │   │   │   ├── dto/ (ExperienceResponse, BookingRequest, ...)</p>
+<p>│       │   │   │   ├── repository/ExperienceRepository.java</p>
+<p>│       │   │   │   ├── repository/BookingRepository.java</p>
+<p>│       │   │   │   ├── repository/ReviewRepository.java</p>
+<p>│       │   │   │   ├── model/ExperienceDocument.java</p>
+<p>│       │   │   │   ├── model/BookingDocument.java</p>
+<p>│       │   │   │   └── model/ReviewDocument.java</p>
+<p>│       │   │   │</p>
+<p>│       │   │   ├── payment/</p>
+<p>│       │   │   │   ├── controller/PaymentController.java</p>
+<p>│       │   │   │   ├── service/PaymentService.java</p>
+<p>│       │   │   │   └── dto/ (PaymentIntentResponse, ...)</p>
+<p>│       │   │   │</p>
+<p>│       │   │   ├── map/</p>
+<p>│       │   │   │   ├── controller/MapController.java</p>
+<p>│       │   │   │   ├── service/FootfallService.java</p>
+<p>│       │   │   │   ├── service/HeatmapScheduler.java</p>
+<p>│       │   │   │   ├── dto/ (HeatmapResponse, POIResponse, ...)</p>
+<p>│       │   │   │   ├── repository/FootfallGridRepository.java</p>
+<p>│       │   │   │   └── model/FootfallGridDocument.java</p>
+<p>│       │   │   │</p>
+<p>│       │   │   ├── event/</p>
+<p>│       │   │   │   ├── controller/EventController.java</p>
+<p>│       │   │   │   ├── service/EventAggregatorService.java</p>
+<p>│       │   │   │   ├── client/EventbriteClient.java</p>
+<p>│       │   │   │   ├── dto/ (EventResponse, ...)</p>
+<p>│       │   │   │   ├── repository/EventRepository.java</p>
+<p>│       │   │   │   └── model/EventDocument.java</p>
+<p>│       │   │   │</p>
+<p>│       │   │   ├── notification/</p>
+<p>│       │   │   │   ├── controller/NotificationController.java</p>
+<p>│       │   │   │   ├── service/NotificationService.java</p>
+<p>│       │   │   │   ├── client/SendGridClient.java</p>
+<p>│       │   │   │   ├── client/FirebaseClient.java</p>
+<p>│       │   │   │   ├── dto/ (NotificationResponse, ...)</p>
+<p>│       │   │   │   ├── repository/NotificationRepository.java</p>
+<p>│       │   │   │   └── model/NotificationDocument.java</p>
+<p>│       │   │   │</p>
+<p>│       │   │   ├── analytics/</p>
+<p>│       │   │   │   ├── controller/AnalyticsController.java</p>
+<p>│       │   │   │   ├── service/AnalyticsService.java</p>
+<p>│       │   │   │   └── dto/ (CreatorVisibilityResponse, ...)</p>
+<p>│       │   │   │</p>
+<p>│       │   │   └── messaging/</p>
+<p>│       │   │       ├── controller/MessageController.java</p>
+<p>│       │   │       ├── service/MessageService.java</p>
+<p>│       │   │       ├── repository/MessageRepository.java</p>
+<p>│       │   │       └── model/MessageDocument.java</p>
+<p>│       │   │</p>
+<p>│       │   └── resources/</p>
+<p>│       │       ├── application.yml</p>
+<p>│       │       ├── application-docker.yml</p>
+<p>│       │       ├── application-test.yml</p>
+<p>│       │       └── prompts/</p>
+<p>│       │           ├── itinerary-system.txt</p>
+<p>│       │           ├── itinerary-user.txt</p>
+<p>│       │           └── replan-user.txt</p>
+<p>│       │</p>
+<p>│       └── test/</p>
+<p>│           └── java/com/locallens/</p>
+<p>│               ├── auth/service/AuthServiceTest.java</p>
+<p>│               ├── trip/service/TripServiceTest.java</p>
+<p>│               ├── itinerary/service/ItineraryAIServiceTest.java</p>
+<p>│               ├── replan/service/ReplanningServiceTest.java</p>
+<p>│               ├── marketplace/service/ExperienceMatchingServiceTest.java</p>
+<p>│               └── integration/</p>
+<p>│                   ├── TripIntegrationTest.java</p>
+<p>│                   └── ItineraryIntegrationTest.java</p>
+<p>│</p>
+<p>├── locallens-frontend/                       # React Application</p>
+<p>│   ├── Dockerfile</p>
+<p>│   ├── Dockerfile.dev</p>
+<p>│   ├── docker/nginx.conf</p>
+<p>│   ├── package.json</p>
+<p>│   ├── vite.config.js</p>
+<p>│   ├── .env.example</p>
+<p>│   ├── public/</p>
+<p>│   │   ├── index.html</p>
+<p>│   │   ├── favicon.ico</p>
+<p>│   │   └── manifest.json</p>
+<p>│   └── src/</p>
+<p>│       ├── index.js</p>
+<p>│       ├── App.jsx</p>
+<p>│       ├── components/</p>
+<p>│       │   ├── common/     (17 shared UI components)</p>
+<p>│       │   ├── auth/       (4 auth components)</p>
+<p>│       │   ├── trip/       (6 trip wizard components)</p>
+<p>│       │   ├── dashboard/  (13 dashboard components)</p>
+<p>│       │   ├── map/        (10 map components)</p>
+<p>│       │   ├── marketplace/ (8 marketplace components)</p>
+<p>│       │   ├── creator/    (8 creator components)</p>
+<p>│       │   └── messaging/  (3 messaging components)</p>
+<p>│       ├── pages/          (13 page components)</p>
+<p>│       ├── hooks/          (14 custom hooks)</p>
+<p>│       ├── services/       (12 API service modules)</p>
+<p>│       ├── store/          (5 Zustand stores)</p>
+<p>│       ├── utils/          (4 utility modules)</p>
+<p>│       └── styles/         (6 CSS files)</p>
+<p>│</p>
+<p>└── docs/</p>
+<p>├── architecture.md</p>
+<p>├── api-docs.md</p>
+<p>├── creator-guide.md</p>
+<p>└── deployment.md</code></pre></p>
+
+<h3>Component Count Summary</h3>
+
+<tr><td>Area</td><td>Files</td></tr>
+<tr><td>Backend Java classes</td><td>~85</td></tr>
+<tr><td>Frontend React components</td><td>~69</td></tr>
+<tr><td>Hooks</td><td>14</td></tr>
+<tr><td>Services</td><td>12</td></tr>
+<tr><td>Stores</td><td>5</td></tr>
+<tr><td>CSS files</td><td>6</td></tr>
+<tr><td>Config/Docker</td><td>~12</td></tr>
+<tr><td>Tests (backend)</td><td>~20</td></tr>
+<tr><td><strong>Total</strong></td><td><strong>~223 files</strong></td></tr>
+
+<footer style="margin-top:3rem;padding-top:1rem;border-top:1px solid #e5e7eb;color:#9ca3af;font-size:0.8rem;text-align:center;">LocalLens Architecture Documentation - Generated 2026-03-14</footer>
+</body></html>
