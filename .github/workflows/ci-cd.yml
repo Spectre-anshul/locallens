@@ -32,10 +32,10 @@ jobs:
         with:
           java-version: '17'
           distribution: 'temurin'
-          cache: 'gradle'
+      - uses: gradle/actions/setup-gradle@v4
       - name: Run backend tests
         working-directory: ./locallens-backend
-        run: ./gradlew test --no-daemon
+        run: gradle test --no-daemon
         env:
           SPRING_DATA_MONGODB_URI: mongodb://localhost:27017/locallens_test
           SPRING_DATA_REDIS_HOST: localhost
@@ -53,11 +53,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: locallens-frontend/package-lock.json
       - name: Install dependencies
         working-directory: ./locallens-frontend
-        run: npm ci
+        run: npm install
       - name: Run linter
         working-directory: ./locallens-frontend
         run: npm run lint
